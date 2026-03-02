@@ -1,0 +1,84 @@
+from fastapi import APIRouter, HTTPException
+from models.user import UserRegister, UserLogin, Token
+from utils.auth_helper import (
+    get_password_hash, verify_password,
+    create_access_token, create_refresh_token,
+    decode_token, ACCESS_TOKEN_EXPIRE_MINUTES,
+)
+from database.connection import execute_query
+from datetime import timedelta
+from pydantic import BaseModel
+
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@router.post("/register", response_model=dict)
+async def register(user: UserRegister):
+    """F001: User Registration"""
+    check_query = "SELECT user_id FROM users WHERE email = %s"
+    if execute_query(check_query, (user.email,)):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    hashed_password = get_password_hash(user.password)
+    insert_query = """
+        INSERT INTO users (email, password_hash, created_at)
+        VALUES (%s, %s, NOW())
+    """
+    user_id = execute_query(insert_query, (user.email, hashed_password))
+
+    if not user_id:
+        raise HTTPException(status_code=500, detail="Failed to create user")
+
+    execute_query("INSERT INTO user_profiles (user_id) VALUES (%s)", (user_id,))
+
+    return {
+        "message": "User registered successfully",
+        "user_id": user_id,
+        "email": user.email,
+    }
+
+
+@router.post("/login", response_model=Token)
+async def login(user: UserLogin):
+    """F002: User Login — returns access + refresh tokens"""
+    query = "SELECT user_id, email, password_hash FROM users WHERE email = %s"
+    db_user = execute_query(query, (user.email,))
+
+    if not db_user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    db_user = db_user[0]
+
+    if not verify_password(user.password, db_user['password_hash']):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    token_data = {"sub": db_user['email']}
+    return {
+        "access_token": create_access_token(token_data),
+        "refresh_token": create_refresh_token(token_data),
+        "token_type": "bearer",
+    }
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh(body: RefreshRequest):
+    """Exchange a valid refresh token for new access + refresh tokens"""
+    email = decode_token(body.refresh_token, expected_type="refresh")
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    query = "SELECT user_id, email FROM users WHERE email = %s"
+    user = execute_query(query, (email,))
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    token_data = {"sub": email}
+    return {
+        "access_token": create_access_token(token_data),
+        "refresh_token": create_refresh_token(token_data),
+        "token_type": "bearer",
+    }
