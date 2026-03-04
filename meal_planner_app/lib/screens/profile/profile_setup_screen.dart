@@ -38,6 +38,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     'Nuts', 'Dairy', 'Gluten', 'Eggs', 'Fish', 'Shellfish', 'Soy',
   ];
 
+  // When a preference is selected, these other preferences are incompatible
+  static const Map<String, List<String>> _prefConflicts = {
+    'Vegan':        ['High-Protein', 'Keto'],
+    'High-Protein': ['Vegan'],
+    'Keto':         ['Vegan', 'Low-Carb'],
+    'Low-Carb':     ['Keto'],
+  };
+
+  // When a preference is selected, these allergens are already excluded
+  static const Map<String, List<String>> _prefToAllergenConflicts = {
+    'Vegan':      ['Dairy', 'Eggs'],
+    'Dairy-Free': ['Dairy'],
+    'Gluten-Free':['Gluten'],
+  };
+
   final List<String> _activityLevels = [
     'sedentary',
     'lightly_active',
@@ -52,6 +67,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     'gain weight',
     'build muscle',
   ];
+
+  Set<String> get _disabledPreferences {
+    final disabled = <String>{};
+    for (final sel in _selectedPreferences) {
+      disabled.addAll(_prefConflicts[sel] ?? []);
+    }
+    return disabled;
+  }
+
+  Set<String> get _disabledAllergens {
+    final disabled = <String>{};
+    for (final sel in _selectedPreferences) {
+      disabled.addAll(_prefToAllergenConflicts[sel] ?? []);
+    }
+    return disabled;
+  }
 
   @override
   void dispose() {
@@ -78,7 +109,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         name: _nameController.text.trim().isEmpty
             ? null
             : _nameController.text.trim(),
-        age: int.parse(_ageController.text),
+        age: int.tryParse(_ageController.text),
         weight: double.parse(_weightController.text),
         height: double.parse(_heightController.text),
         dietaryPreferences: _selectedPreferences.isEmpty
@@ -216,6 +247,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     required List<String> options,
     required Set<String> selected,
     required void Function(String, bool) onChanged,
+    Set<String> disabled = const {},
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,19 +267,31 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           runSpacing: 8,
           children: options.map((option) {
             final isSelected = selected.contains(option);
+            final isDisabled = disabled.contains(option);
             return FilterChip(
               label: Text(option),
-              selected: isSelected,
-              onSelected: (val) => onChanged(option, val),
+              selected: isSelected && !isDisabled,
+              onSelected: isDisabled ? null : (val) => onChanged(option, val),
               selectedColor: AppTheme.primaryColor.withOpacity(0.15),
               checkmarkColor: AppTheme.primaryColor,
+              disabledColor: AppTheme.surfaceColor,
               labelStyle: TextStyle(
                 fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                fontWeight: isSelected && !isDisabled
+                    ? FontWeight.w600
+                    : FontWeight.w400,
+                color: isDisabled
+                    ? AppTheme.textTertiary
+                    : isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondary,
               ),
               side: BorderSide(
-                color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                color: isDisabled
+                    ? AppTheme.borderColor.withOpacity(0.4)
+                    : isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
               ),
               backgroundColor: AppTheme.surfaceColor,
               shape: RoundedRectangleBorder(
@@ -258,6 +302,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         ),
       ],
     );
+  }
+
+  void _onPreferenceChanged(String option, bool val) {
+    setState(() {
+      if (val) {
+        _selectedPreferences.add(option);
+        // Auto-remove conflicting preferences
+        _selectedPreferences.removeAll(_prefConflicts[option] ?? []);
+        // Auto-remove allergens that are now redundant
+        _selectedAllergens.removeAll(_prefToAllergenConflicts[option] ?? []);
+      } else {
+        _selectedPreferences.remove(option);
+      }
+    });
   }
 
   @override
@@ -353,12 +411,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       const SizedBox(height: AppTheme.spaceMD),
 
                       CustomTextField(
-                        label: 'Age',
-                        hint: 'Enter your age',
+                        label: 'Age (Optional)',
+                        hint: 'e.g., 25',
                         controller: _ageController,
                         keyboardType: TextInputType.number,
-                        validator: (value) =>
-                            Validators.validateNumber(value, 'Age'),
                       ),
                       const SizedBox(height: AppTheme.spaceMD),
 
@@ -453,9 +509,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         label: 'Dietary Preferences (Optional)',
                         options: _preferenceOptions,
                         selected: _selectedPreferences,
-                        onChanged: (option, val) => setState(() {
-                          val ? _selectedPreferences.add(option) : _selectedPreferences.remove(option);
-                        }),
+                        disabled: _disabledPreferences,
+                        onChanged: _onPreferenceChanged,
                       ),
                       const SizedBox(height: AppTheme.spaceMD),
 
@@ -463,8 +518,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         label: 'Allergies (Optional)',
                         options: _allergenOptions,
                         selected: _selectedAllergens,
+                        disabled: _disabledAllergens,
                         onChanged: (option, val) => setState(() {
-                          val ? _selectedAllergens.add(option) : _selectedAllergens.remove(option);
+                          val
+                              ? _selectedAllergens.add(option)
+                              : _selectedAllergens.remove(option);
                         }),
                       ),
                       const SizedBox(height: AppTheme.spaceXL),
