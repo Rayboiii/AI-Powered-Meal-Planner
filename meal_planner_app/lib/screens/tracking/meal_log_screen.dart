@@ -31,6 +31,18 @@ class _MealLogScreenState extends State<MealLogScreen> {
   double? _cachedCarbsTarget;
   double? _cachedFatsTarget;
 
+  // ── Date navigation ──────────────────────────────────────────────────────
+  DateTime _selectedDate = DateTime.now();
+  List<Map<String, dynamic>> _historyMeals = [];
+  bool _loadingHistory = false;
+
+  bool get _isToday {
+    final now = DateTime.now();
+    return _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +53,71 @@ class _MealLogScreenState extends State<MealLogScreen> {
   Future<void> _loadTodayMeals() async {
     final provider = Provider.of<TrackingProvider>(context, listen: false);
     await provider.fetchTodayMeals();
+  }
+
+  Future<void> _loadMealsForDate() async {
+    setState(() => _loadingHistory = true);
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final data = await ApiService().get(
+        AppConstants.mealsDateEndpoint,
+        includeAuth: true,
+        queryParams: {'date': dateStr},
+      );
+      if (mounted) {
+        setState(() {
+          _historyMeals = (data['logs'] as List<dynamic>?)
+                  ?.map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList() ??
+              [];
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingHistory = false);
+  }
+
+  void _changeDate(int days) {
+    final newDate = _selectedDate.add(Duration(days: days));
+    if (newDate.isAfter(DateTime.now())) return;
+    setState(() {
+      _selectedDate = newDate;
+      _historyMeals = [];
+    });
+    if (_isToday) {
+      _loadTodayMeals();
+      _fetchSuggestion();
+    } else {
+      _loadMealsForDate();
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppTheme.primaryColor,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedDate = picked;
+        _historyMeals = [];
+      });
+      if (_isToday) {
+        _loadTodayMeals();
+        _fetchSuggestion();
+      } else {
+        _loadMealsForDate();
+      }
+    }
   }
 
   Future<void> _fetchSuggestion() async {
@@ -73,7 +150,48 @@ class _MealLogScreenState extends State<MealLogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Track Meals'),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: Colors.white),
+              onPressed: () => _changeDate(-1),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+            GestureDetector(
+              onTap: _pickDate,
+              child: Row(
+                children: [
+                  Text(
+                    _isToday
+                        ? 'Today'
+                        : DateFormat('MMM d, yyyy').format(_selectedDate),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 14, color: Colors.white70),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.chevron_right,
+                  color: _isToday
+                      ? Colors.white.withOpacity(0.3)
+                      : Colors.white),
+              onPressed: _isToday ? null : () => _changeDate(1),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
+        ),
+        centerTitle: true,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -88,12 +206,16 @@ class _MealLogScreenState extends State<MealLogScreen> {
       body: RefreshIndicator(
         color: AppTheme.primaryColor,
         onRefresh: () async {
-          await _loadTodayMeals();
-          _fetchSuggestion();
+          if (_isToday) {
+            await _loadTodayMeals();
+            _fetchSuggestion();
+          } else {
+            await _loadMealsForDate();
+          }
         },
         child: Consumer2<TrackingProvider, ProfileProvider>(
           builder: (context, tracking, profileProv, child) {
-            if (tracking.isLoading && tracking.todayMeals.isEmpty) {
+            if (_isToday && tracking.isLoading && tracking.todayMeals.isEmpty) {
               return const MealLogSkeleton();
             }
 
@@ -103,6 +225,21 @@ class _MealLogScreenState extends State<MealLogScreen> {
             final proteinTarget = profile?.dailyProteinTarget              ?? _cachedProteinTarget ?? 150.0;
             final carbsTarget   = profile?.dailyCarbsTarget                ?? _cachedCarbsTarget   ?? 250.0;
             final fatsTarget    = profile?.dailyFatsTarget                 ?? _cachedFatsTarget    ?? 65.0;
+
+            // For history mode, compute totals from fetched meals
+            final displayMeals = _isToday ? tracking.todayMeals : null;
+            final histCal  = _historyMeals.fold(0.0, (s, m) => s + (m['calories'] as num? ?? 0).toDouble());
+            final histPro  = _historyMeals.fold(0.0, (s, m) => s + (m['protein']  as num? ?? 0).toDouble());
+            final histCarb = _historyMeals.fold(0.0, (s, m) => s + (m['carbs']    as num? ?? 0).toDouble());
+            final histFat  = _historyMeals.fold(0.0, (s, m) => s + (m['fats']     as num? ?? 0).toDouble());
+
+            final shownCal  = _isToday ? tracking.totalCalories  : histCal;
+            final shownPro  = _isToday ? tracking.totalProtein   : histPro;
+            final shownCarb = _isToday ? tracking.totalCarbs     : histCarb;
+            final shownFat  = _isToday ? tracking.totalFats      : histFat;
+            final shownCount = _isToday
+                ? tracking.todayMeals.length
+                : _historyMeals.length;
 
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -119,7 +256,7 @@ class _MealLogScreenState extends State<MealLogScreen> {
                       children: [
                         Row(
                           children: [
-                            const Text("Today's Total",
+                            Text(_isToday ? "Today's Total" : "Day's Total",
                                 style: AppTheme.h3Style),
                             const Spacer(),
                             Container(
@@ -131,7 +268,7 @@ class _MealLogScreenState extends State<MealLogScreen> {
                                     AppTheme.radiusSM),
                               ),
                               child: Text(
-                                '${tracking.todayMeals.length} meals',
+                                '$shownCount meals',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -149,7 +286,7 @@ class _MealLogScreenState extends State<MealLogScreen> {
                           children: [
                             // Calorie ring
                             _CalorieRing(
-                              consumed: tracking.totalCalories,
+                              consumed: shownCal,
                               target: calTarget,
                             ),
                             const SizedBox(width: AppTheme.spaceMD),
@@ -160,21 +297,21 @@ class _MealLogScreenState extends State<MealLogScreen> {
                                 children: [
                                   _MacroBar(
                                     label: 'Protein',
-                                    consumed: tracking.totalProtein,
+                                    consumed: shownPro,
                                     target: proteinTarget,
                                     color: AppTheme.proteinColor,
                                   ),
                                   const SizedBox(height: 10),
                                   _MacroBar(
                                     label: 'Carbs',
-                                    consumed: tracking.totalCarbs,
+                                    consumed: shownCarb,
                                     target: carbsTarget,
                                     color: AppTheme.carbsColor,
                                   ),
                                   const SizedBox(height: 10),
                                   _MacroBar(
                                     label: 'Fats',
-                                    consumed: tracking.totalFats,
+                                    consumed: shownFat,
                                     target: fatsTarget,
                                     color: AppTheme.fatsColor,
                                   ),
@@ -189,8 +326,8 @@ class _MealLogScreenState extends State<MealLogScreen> {
 
                   const SizedBox(height: AppTheme.spaceLG),
 
-                  // ── AI SUGGESTION CARD ─────────────────────────────────
-                  if (_loadingSuggestion)
+                  // ── AI SUGGESTION CARD (today only) ───────────────────
+                  if (_isToday && _loadingSuggestion)
                     const Padding(
                       padding: EdgeInsets.only(bottom: AppTheme.spaceLG),
                       child: LinearProgressIndicator(
@@ -199,7 +336,8 @@ class _MealLogScreenState extends State<MealLogScreen> {
                         backgroundColor: AppTheme.primaryLightest,
                       ),
                     ),
-                  if (!_loadingSuggestion &&
+                  if (_isToday &&
+                      !_loadingSuggestion &&
                       _suggestion != null &&
                       _suggestion!['status'] == 'ok') ...[
                     _SuggestionCard(
@@ -214,31 +352,40 @@ class _MealLogScreenState extends State<MealLogScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("Today's Meals", style: AppTheme.h3Style),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddMealDialog(context),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Log Meal'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.spaceMD,
-                            vertical: AppTheme.spaceSM,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusMD),
+                      Text(_isToday ? "Today's Meals" : "Meals on this Day",
+                          style: AppTheme.h3Style),
+                      if (_isToday)
+                        ElevatedButton.icon(
+                          onPressed: () => _showAddMealDialog(context),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Log Meal'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppTheme.spaceMD,
+                              vertical: AppTheme.spaceSM,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusMD),
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
 
                   const SizedBox(height: AppTheme.spaceMD),
 
-                  if (tracking.todayMeals.isEmpty)
+                  // History loading indicator
+                  if (_loadingHistory)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: CircularProgressIndicator(
+                          color: AppTheme.primaryColor)),
+                    )
+                  else if (_isToday && tracking.todayMeals.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(AppTheme.space2XL),
@@ -274,7 +421,38 @@ class _MealLogScreenState extends State<MealLogScreen> {
                         ),
                       ),
                     )
-                  else
+                  else if (!_isToday && _historyMeals.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTheme.space2XL),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(AppTheme.spaceLG),
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primaryLightest,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.history_outlined,
+                                size: 40,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: AppTheme.spaceMD),
+                            const Text(
+                              'No meals logged on this day',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else if (_isToday)
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -302,6 +480,16 @@ class _MealLogScreenState extends State<MealLogScreen> {
                             if (success) _fetchSuggestion();
                           },
                         );
+                      },
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _historyMeals.length,
+                      itemBuilder: (context, index) {
+                        final m = _historyMeals[index];
+                        return _HistoryMealCard(meal: m);
                       },
                     ),
                 ],
@@ -458,6 +646,112 @@ class _MacroBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── History Meal Card (read-only) ─────────────────────────────────────────────
+
+class _HistoryMealCard extends StatelessWidget {
+  final Map<String, dynamic> meal;
+  const _HistoryMealCard({required this.meal});
+
+  Color _typeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'breakfast': return AppTheme.warningColor;
+      case 'lunch':     return AppTheme.successColor;
+      case 'dinner':    return AppTheme.primaryDark;
+      case 'snack':     return AppTheme.secondaryColor;
+      default:          return AppTheme.primaryColor;
+    }
+  }
+
+  IconData _typeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'breakfast': return Icons.wb_sunny_outlined;
+      case 'lunch':     return Icons.restaurant_outlined;
+      case 'dinner':    return Icons.nightlight_outlined;
+      case 'snack':     return Icons.cookie_outlined;
+      default:          return Icons.restaurant_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final type = (meal['meal_type'] as String? ?? '').toLowerCase();
+    final color = _typeColor(type);
+    final icon = _typeIcon(type);
+    final typeLabel = type.isEmpty ? '' : type[0].toUpperCase() + type.substring(1);
+    final cal  = (meal['calories'] as num? ?? 0).toDouble();
+    final pro  = (meal['protein']  as num? ?? 0).toDouble();
+    final carb = (meal['carbs']    as num? ?? 0).toDouble();
+    final fat  = (meal['fats']     as num? ?? 0).toDouble();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.spaceSM),
+      padding: const EdgeInsets.all(AppTheme.spaceMD),
+      decoration: AppTheme.cardDecoration(),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: AppTheme.spaceMD),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  meal['food_items'] as String? ?? '',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  typeLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppTheme.spaceSM),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${cal.toStringAsFixed(0)} kcal',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.caloriesColor,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'P${pro.toStringAsFixed(0)}g · C${carb.toStringAsFixed(0)}g · F${fat.toStringAsFixed(0)}g',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

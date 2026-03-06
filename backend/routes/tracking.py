@@ -36,6 +36,30 @@ async def log_meal(
     return {"message": "Meal logged successfully", "log_id": log_id}
 
 
+@router.get("/date", response_model=dict)
+async def get_meals_by_date(
+    date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Get meal logs for a specific date"""
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+    query = """
+        SELECT log_id, meal_date, meal_type, food_items, calories, protein, carbs, fats
+        FROM meal_logs
+        WHERE user_id = %s AND meal_date = %s
+        ORDER BY log_id ASC
+    """
+    logs = execute_query(query, (current_user['user_id'], date))
+    if not logs:
+        return {"logs": [], "total_calories": 0}
+    total_calories = sum(log['calories'] for log in logs)
+    return {"logs": logs, "total_calories": total_calories}
+
+
 @router.get("/today", response_model=dict)
 async def get_today_logs(current_user: dict = Depends(get_current_user)):
     """Get today's meal logs"""
