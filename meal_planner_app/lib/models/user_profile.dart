@@ -10,6 +10,8 @@ class UserProfile {
 
   // Computed daily nutritional targets — returned by the backend profile endpoint
   final int? dailyCalorieTarget;
+  final int? dailyCalorieTargetMin;
+  final int? dailyCalorieTargetMax;
   final double? dailyProteinTarget;
   final double? dailyCarbsTarget;
   final double? dailyFatsTarget;
@@ -24,6 +26,8 @@ class UserProfile {
     this.healthGoals,
     this.activityLevel,
     this.dailyCalorieTarget,
+    this.dailyCalorieTargetMin,
+    this.dailyCalorieTargetMax,
     this.dailyProteinTarget,
     this.dailyCarbsTarget,
     this.dailyFatsTarget,
@@ -39,10 +43,12 @@ class UserProfile {
       allergies: json['allergies'],
       healthGoals: json['health_goals'],
       activityLevel: json['activity_level'],
-      dailyCalorieTarget: json['daily_calorie_target'],
+      dailyCalorieTarget:    json['daily_calorie_target'],
+      dailyCalorieTargetMin: json['daily_calorie_target_min'],
+      dailyCalorieTargetMax: json['daily_calorie_target_max'],
       dailyProteinTarget: json['daily_protein_target']?.toDouble(),
-      dailyCarbsTarget: json['daily_carbs_target']?.toDouble(),
-      dailyFatsTarget: json['daily_fats_target']?.toDouble(),
+      dailyCarbsTarget:   json['daily_carbs_target']?.toDouble(),
+      dailyFatsTarget:    json['daily_fats_target']?.toDouble(),
     );
   }
 

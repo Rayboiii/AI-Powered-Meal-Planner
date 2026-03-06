@@ -5,6 +5,7 @@ from utils.validation import get_current_user
 from ai_engine.meal_planner import (
     MEAL_DATABASE, _filter_meals, _parse_csv, _MEAL_CAL_SPLIT,
     calculate_bmr, calculate_tdee, adjust_calories_for_goal, calculate_macros,
+    calorie_range,
 )
 from datetime import datetime, timedelta, date
 from pydantic import BaseModel, Field
@@ -312,12 +313,36 @@ async def suggest_next_meal(current_user: dict = Depends(get_current_user)):
     for s in scored:
         meal  = s["meal"]
         scale = ideal_slot_cal / meal["calories"] if meal["calories"] > 0 else 1.0
-        s_cal = round(meal["calories"] * scale)
-        s_pro = round(meal["protein"]  * scale, 1)
-        s_cbs = round(meal["carbs"]    * scale, 1)
-        s_fat = round(meal["fats"]     * scale, 1)
+        # Round to nearest 0.5 serving for realistic portion guidance
+        servings = max(0.5, round(scale * 2) / 2)
+        s_cal = round(meal["calories"] * servings)
+        s_pro = round(meal["protein"]  * servings, 1)
+        s_cbs = round(meal["carbs"]    * servings, 1)
+        s_fat = round(meal["fats"]     * servings, 1)
         cal_pct = round(s_cal / max(remaining_cal, 1) * 100)
         pro_pct = round(s_pro / max(remaining_pro,  1) * 100)
+        # Build a realistic serving label
+        serving_size_g = meal.get("serving_size_g", 0)
+        serving_unit   = meal.get("serving_unit", "serving")
+        if abs(servings - 1.0) > 0.1:
+            weight_g     = round(serving_size_g * servings) if serving_size_g else None
+            serving_label = f"{servings:g} serving{'s' if servings != 1 else ''}"
+            if weight_g:
+                serving_label += f" (~{weight_g}g)"
+        else:
+            weight_g      = serving_size_g or None
+            serving_label = f"1 {serving_unit}"
+            if weight_g:
+                serving_label += f" (~{weight_g}g)"
+        # Scale ingredients proportionally
+        scaled_ingredients = [
+            {
+                "name":   ing["name"],
+                "amount": round(ing["amount"] * servings, 1) if isinstance(ing["amount"], (int, float)) else ing["amount"],
+                "unit":   ing["unit"],
+            }
+            for ing in meal.get("ingredients", [])
+        ]
         suggestions.append({
             "name":        meal["name"],
             "category":    next_meal_type,
@@ -327,9 +352,11 @@ async def suggest_next_meal(current_user: dict = Depends(get_current_user)):
             "fats":        s_fat,
             "match_score": s["score"],
             "reason":      f"Covers {cal_pct}% of remaining calories and {pro_pct}% of remaining protein",
-            "serving":     f"{scale:.1f}x portion" if abs(scale - 1.0) > 0.05 else None,
+            "serving":     serving_label,
+            "ingredients": scaled_ingredients,
         })
 
+    cal_range = calorie_range(cal_target)
     return {
         "status":             "ok",
         "next_meal_type":     next_meal_type,
@@ -342,10 +369,12 @@ async def suggest_next_meal(current_user: dict = Depends(get_current_user)):
         # Full daily targets — used by the Flutter tracking screen as a
         # reliable fallback when the profile provider hasn't loaded yet.
         "targets": {
-            "calories": round(cal_target),
-            "protein":  round(pro_target,   1),
-            "carbs":    round(carbs_target, 1),
-            "fats":     round(fats_target,  1),
+            "calories":     round(cal_target),
+            "calories_min": cal_range["min"],
+            "calories_max": cal_range["max"],
+            "protein":      round(pro_target,   1),
+            "carbs":        round(carbs_target, 1),
+            "fats":         round(fats_target,  1),
         },
         "calorie_consumed":   round(consumed_cal),
         "calorie_target":     round(cal_target),

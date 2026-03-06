@@ -27,6 +27,8 @@ class _MealLogScreenState extends State<MealLogScreen> {
   // Personalised daily targets from the suggest endpoint — used as a fallback
   // when ProfileProvider hasn't loaded computed targets yet.
   double? _cachedCalTarget;
+  double? _cachedCalMin;
+  double? _cachedCalMax;
   double? _cachedProteinTarget;
   double? _cachedCarbsTarget;
   double? _cachedFatsTarget;
@@ -135,10 +137,12 @@ class _MealLogScreenState extends State<MealLogScreen> {
           // always shows personalised values even if the profile GET failed.
           final t = data['targets'] as Map<String, dynamic>?;
           if (t != null) {
-            _cachedCalTarget     = (t['calories'] as num?)?.toDouble();
-            _cachedProteinTarget = (t['protein']  as num?)?.toDouble();
-            _cachedCarbsTarget   = (t['carbs']    as num?)?.toDouble();
-            _cachedFatsTarget    = (t['fats']     as num?)?.toDouble();
+            _cachedCalTarget     = (t['calories']     as num?)?.toDouble();
+            _cachedCalMin        = (t['calories_min'] as num?)?.toDouble();
+            _cachedCalMax        = (t['calories_max'] as num?)?.toDouble();
+            _cachedProteinTarget = (t['protein']      as num?)?.toDouble();
+            _cachedCarbsTarget   = (t['carbs']        as num?)?.toDouble();
+            _cachedFatsTarget    = (t['fats']         as num?)?.toDouble();
           }
         });
       }
@@ -288,6 +292,8 @@ class _MealLogScreenState extends State<MealLogScreen> {
                             _CalorieRing(
                               consumed: shownCal,
                               target: calTarget,
+                              targetMin: _cachedCalMin,
+                              targetMax: _cachedCalMax,
                             ),
                             const SizedBox(width: AppTheme.spaceMD),
 
@@ -532,15 +538,33 @@ class _MealLogScreenState extends State<MealLogScreen> {
 class _CalorieRing extends StatelessWidget {
   final double consumed;
   final double target;
+  final double? targetMin;
+  final double? targetMax;
 
-  const _CalorieRing({required this.consumed, required this.target});
+  const _CalorieRing({
+    required this.consumed,
+    required this.target,
+    this.targetMin,
+    this.targetMax,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveMax = targetMax ?? target;
     final progress = target > 0 ? (consumed / target).clamp(0.0, 1.0) : 0.0;
-    final over = consumed > target;
-    final ringColor =
-        over ? AppTheme.errorColor : AppTheme.primaryColor;
+
+    Color ringColor;
+    if (consumed > effectiveMax) {
+      ringColor = AppTheme.errorColor;
+    } else if (consumed > target) {
+      ringColor = AppTheme.warningColor;
+    } else {
+      ringColor = AppTheme.primaryColor;
+    }
+
+    final rangeLabel = (targetMin != null && targetMax != null)
+        ? '${targetMin!.toStringAsFixed(0)}–${targetMax!.toStringAsFixed(0)}'
+        : 'of ${target.toStringAsFixed(0)}';
 
     return SizedBox(
       width: 110,
@@ -568,9 +592,9 @@ class _CalorieRing extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'of ${target.toStringAsFixed(0)}',
+                  rangeLabel,
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     color: AppTheme.textTertiary,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1102,19 +1126,113 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
     final baseCal = (meal['calories'] as num).toDouble();
     final idealCal =
         widget.dailyCalTarget * (mealSplits[_selectedMealType] ?? 0.25);
-    final scale = baseCal > 0 ? idealCal / baseCal : 1.0;
+    final rawScale = baseCal > 0 ? idealCal / baseCal : 1.0;
+    // Round to nearest 0.5 serving for realistic portion guidance
+    final servings = ((rawScale * 2).round() / 2).clamp(0.5, 5.0);
 
     _foodItemsController.removeListener(_onFoodChanged);
     _foodItemsController.text = meal['name'] as String;
     _foodItemsController.addListener(_onFoodChanged);
-    _caloriesController.text = (baseCal * scale).round().toString();
+    _caloriesController.text = (baseCal * servings).round().toString();
     _proteinController.text =
-        ((meal['protein'] as num) * scale).toStringAsFixed(1);
+        ((meal['protein'] as num) * servings).toStringAsFixed(1);
     _carbsController.text =
-        ((meal['carbs'] as num) * scale).toStringAsFixed(1);
+        ((meal['carbs'] as num) * servings).toStringAsFixed(1);
     _fatsController.text =
-        ((meal['fats'] as num) * scale).toStringAsFixed(1);
+        ((meal['fats'] as num) * servings).toStringAsFixed(1);
     setState(() => _foodSuggestions = []);
+  }
+
+  void _showIngredientSheet(BuildContext context, Map<String, dynamic> meal) {
+    final ingredients =
+        (meal['ingredients'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+            [];
+    if (ingredients.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(AppTheme.radius2XL),
+            topRight: Radius.circular(AppTheme.radius2XL),
+          ),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.all(AppTheme.spaceLG),
+          shrinkWrap: true,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceMD),
+            Text(meal['name'] as String, style: AppTheme.h3Style),
+            const SizedBox(height: 4),
+            Text(
+              '${meal['calories']} kcal · P ${meal['protein']}g · C ${meal['carbs']}g · F ${meal['fats']}g',
+              style: AppTheme.bodySmallStyle,
+            ),
+            const SizedBox(height: AppTheme.spaceMD),
+            const Divider(),
+            const SizedBox(height: AppTheme.spaceSM),
+            const Text(
+              'Ingredients (1 serving)',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceSM),
+            ...ingredients.map((ing) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        ing['name'] as String,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${ing['amount']} ${ing['unit']}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: AppTheme.spaceLG),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -1325,6 +1443,8 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
                         const Divider(height: 1, thickness: 1),
                     itemBuilder: (context, i) {
                       final meal = _foodSuggestions[i];
+                      final hasIngredients =
+                          (meal['ingredients'] as List?)?.isNotEmpty ?? false;
                       return ListTile(
                         dense: true,
                         title: Text(
@@ -1342,8 +1462,24 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
                             color: AppTheme.textSecondary,
                           ),
                         ),
-                        trailing: const Icon(Icons.add_circle_outline,
-                            size: 20, color: AppTheme.primaryColor),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (hasIngredients)
+                              GestureDetector(
+                                onTap: () =>
+                                    _showIngredientSheet(context, meal),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 4),
+                                  child: Icon(Icons.info_outline,
+                                      size: 18,
+                                      color: AppTheme.textTertiary),
+                                ),
+                              ),
+                            const Icon(Icons.add_circle_outline,
+                                size: 20, color: AppTheme.primaryColor),
+                          ],
+                        ),
                         onTap: () => _selectSuggestion(meal),
                       );
                     },
@@ -1519,6 +1655,24 @@ class _SuggestionCard extends StatelessWidget {
                         fontStyle: FontStyle.italic,
                       ),
                     ),
+                    if (primary['serving'] != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.restaurant_outlined,
+                              size: 12, color: AppTheme.textTertiary),
+                          const SizedBox(width: 4),
+                          Text(
+                            primary['serving'] as String,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textTertiary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

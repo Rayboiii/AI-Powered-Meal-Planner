@@ -67,6 +67,7 @@ class Meal {
   final double carbs;
   final double fats;
   final String? serving;
+  final List<Map<String, dynamic>> ingredients;
 
   Meal({
     required this.type,
@@ -76,6 +77,7 @@ class Meal {
     required this.carbs,
     required this.fats,
     this.serving,
+    this.ingredients = const [],
   });
 
   factory Meal.fromJson(String type, Map<String, dynamic> json) {
@@ -87,6 +89,10 @@ class Meal {
       carbs: (json['carbs'] as num?)?.toDouble() ?? 0.0,
       fats: (json['fats'] as num?)?.toDouble() ?? 0.0,
       serving: json['serving'] as String?,
+      ingredients: (json['ingredients'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [],
     );
   }
 }

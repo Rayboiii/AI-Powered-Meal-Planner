@@ -109,7 +109,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       ));
     }
 
-    // Calorie compliance vs target
+    // Calorie compliance vs target range
     if (calTarget > 0) {
       final diff = avgCal - calTarget;
       if (diff.abs() < 150) {
@@ -118,7 +118,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           color: AppTheme.successColor,
           title: 'Calories on target!',
           body:
-              'Your average of ${avgCal.toStringAsFixed(0)} kcal is right in line with your goal.',
+              'Your average of ${avgCal.toStringAsFixed(0)} kcal is right in your goal range.',
         ));
       } else if (diff > 0) {
         insights.add(_Insight(
@@ -295,7 +295,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
     final profile =
         Provider.of<ProfileProvider>(context, listen: false).profile;
-    final calTarget = profile?.dailyCalorieTarget?.toDouble() ?? 0.0;
+    final calTarget    = profile?.dailyCalorieTarget?.toDouble()    ?? 0.0;
+    final calMin       = profile?.dailyCalorieTargetMin?.toDouble();
+    final calMax       = profile?.dailyCalorieTargetMax?.toDouble();
     final proteinTarget = profile?.dailyProteinTarget ?? 0.0;
 
     // Weekly macro averages
@@ -375,7 +377,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
               child: SizedBox(
                 height: 230,
                 child: LineChart(
-                  _buildCalorieChart(dailyData, calTarget),
+                  _buildCalorieChart(dailyData, calTarget,
+                      calMin: calMin, calMax: calMax),
                 ),
               ),
             ),
@@ -438,7 +441,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 
   // ── Calorie line chart (with optional goal reference line) ────────────────
-  LineChartData _buildCalorieChart(List dailyData, double calTarget) {
+  LineChartData _buildCalorieChart(List dailyData, double calTarget,
+      {double? calMin, double? calMax}) {
     final spots = <FlSpot>[];
     double maxY = 0;
     for (int i = 0; i < dailyData.length; i++) {
@@ -500,12 +504,30 @@ class _ProgressScreenState extends State<ProgressScreen> {
       maxX: (dailyData.length - 1).toDouble(),
       minY: 0,
       maxY: maxY,
-      // Optional goal reference line
+      // Goal target line + optional min/max range lines
       extraLinesData: calTarget > 0
           ? ExtraLinesData(horizontalLines: [
+              if (calMin != null)
+                HorizontalLine(
+                  y: calMin,
+                  color: AppTheme.successColor.withOpacity(0.4),
+                  strokeWidth: 1.0,
+                  dashArray: [4, 5],
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.topLeft,
+                    padding: const EdgeInsets.only(left: 4, bottom: 2),
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: AppTheme.successColor.withOpacity(0.8),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    labelResolver: (_) => 'Min',
+                  ),
+                ),
               HorizontalLine(
                 y: calTarget,
-                color: AppTheme.primaryColor.withOpacity(0.4),
+                color: AppTheme.primaryColor.withOpacity(0.5),
                 strokeWidth: 1.5,
                 dashArray: [5, 4],
                 label: HorizontalLineLabel(
@@ -514,12 +536,30 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   padding: const EdgeInsets.only(right: 4, bottom: 2),
                   style: TextStyle(
                     fontSize: 10,
-                    color: AppTheme.primaryColor.withOpacity(0.7),
+                    color: AppTheme.primaryColor.withOpacity(0.8),
                     fontWeight: FontWeight.w600,
                   ),
-                  labelResolver: (_) => 'Goal',
+                  labelResolver: (_) => 'Target',
                 ),
               ),
+              if (calMax != null)
+                HorizontalLine(
+                  y: calMax,
+                  color: AppTheme.warningColor.withOpacity(0.4),
+                  strokeWidth: 1.0,
+                  dashArray: [4, 5],
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.topLeft,
+                    padding: const EdgeInsets.only(left: 4, bottom: 2),
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: AppTheme.warningColor.withOpacity(0.8),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    labelResolver: (_) => 'Max',
+                  ),
+                ),
             ])
           : null,
       lineBarsData: [
@@ -671,7 +711,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final carbs = (day['total_carbs'] as num?)?.toDouble() ?? 0;
     final fats = (day['total_fats'] as num?)?.toDouble() ?? 0;
     final mealCount = (day['meal_count'] as num?)?.toInt() ?? 0;
-    final onTarget = calTarget > 0 && (calories - calTarget).abs() < 200;
+    final profile =
+        Provider.of<ProfileProvider>(context, listen: false).profile;
+    final effectiveMin =
+        profile?.dailyCalorieTargetMin?.toDouble() ?? (calTarget - 200);
+    final effectiveMax =
+        profile?.dailyCalorieTargetMax?.toDouble() ?? (calTarget + 200);
+    final onTarget =
+        calTarget > 0 && calories >= effectiveMin && calories <= effectiveMax;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppTheme.spaceSM),

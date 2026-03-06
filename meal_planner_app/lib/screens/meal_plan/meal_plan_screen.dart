@@ -169,7 +169,15 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                       children: [
                         _buildNutrientInfo(
                           'Calories',
-                          '${mealPlan.nutritionalTarget['daily_calories']?.toStringAsFixed(0) ?? 'N/A'}',
+                          () {
+                            final t = mealPlan.nutritionalTarget;
+                            final min = t['calories_min'];
+                            final max = t['calories_max'];
+                            if (min != null && max != null) {
+                              return '${(min as num).toStringAsFixed(0)}–${(max as num).toStringAsFixed(0)}';
+                            }
+                            return '${(t['daily_calories'] as num?)?.toStringAsFixed(0) ?? 'N/A'}';
+                          }(),
                           Icons.local_fire_department,
                         ),
                         _buildNutrientInfo(
@@ -284,6 +292,104 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showMealIngredientsSheet(Meal meal) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(AppTheme.radius2XL),
+            topRight: Radius.circular(AppTheme.radius2XL),
+          ),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.all(AppTheme.spaceLG),
+          shrinkWrap: true,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceMD),
+            Text(meal.name, style: AppTheme.h3Style),
+            const SizedBox(height: 4),
+            Text(
+              '${meal.calories.toStringAsFixed(0)} kcal · P ${meal.protein.toStringAsFixed(0)}g · C ${meal.carbs.toStringAsFixed(0)}g · F ${meal.fats.toStringAsFixed(0)}g',
+              style: AppTheme.bodySmallStyle,
+            ),
+            if (meal.serving != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                meal.serving!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            const SizedBox(height: AppTheme.spaceMD),
+            const Divider(),
+            const SizedBox(height: AppTheme.spaceSM),
+            const Text(
+              'Ingredients',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceSM),
+            ...meal.ingredients.map((ing) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        ing['name'] as String,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${ing['amount']} ${ing['unit']}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: AppTheme.spaceLG),
+          ],
+        ),
       ),
     );
   }
@@ -415,6 +521,14 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                     ],
                   ),
                 ),
+                if (meal.ingredients.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.info_outline, size: 20),
+                    color: AppTheme.textTertiary,
+                    tooltip: 'View ingredients',
+                    onPressed: () =>
+                        _showMealIngredientsSheet(meal),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline, size: 20),
                   color: AppTheme.successColor,

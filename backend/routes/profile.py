@@ -3,7 +3,8 @@ from models.user import UserProfile, UserProfileUpdate
 from database.connection import execute_query
 from utils.validation import get_current_user
 from ai_engine.meal_planner import (
-    calculate_bmr, calculate_tdee, adjust_calories_for_goal, calculate_macros
+    calculate_bmr, calculate_tdee, adjust_calories_for_goal, calculate_macros,
+    calorie_range,
 )
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
@@ -60,10 +61,13 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
             target_cal  = adjust_calories_for_goal(tdee, profile_data['health_goals'])
             macros      = calculate_macros(target_cal, profile_data['health_goals'])
 
-            profile_data['daily_calorie_target'] = round(target_cal)
-            profile_data['daily_protein_target'] = macros['protein']
-            profile_data['daily_carbs_target']   = macros['carbs']
-            profile_data['daily_fats_target']    = macros['fats']
+            cal_range = calorie_range(target_cal)
+            profile_data['daily_calorie_target']     = round(target_cal)
+            profile_data['daily_calorie_target_min'] = cal_range['min']
+            profile_data['daily_calorie_target_max'] = cal_range['max']
+            profile_data['daily_protein_target']     = macros['protein']
+            profile_data['daily_carbs_target']       = macros['carbs']
+            profile_data['daily_fats_target']        = macros['fats']
         except Exception:
             pass  # targets are optional; silently omit if calculation fails
 
