@@ -7,6 +7,7 @@ import '../../utils/validators.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 import '../profile/profile_setup_screen.dart';
 import '../home/home_screen.dart';
 
@@ -231,7 +232,30 @@ class _LoginScreenState extends State<LoginScreen> {
                               () => _obscurePassword = !_obscurePassword),
                         ),
                       ),
-                      const SizedBox(height: AppTheme.spaceLG),
+                      const SizedBox(height: 5),
+                      Center(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordScreen(),
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spaceMD),
 
                       if (_serverError != null) ...[
                         Container(

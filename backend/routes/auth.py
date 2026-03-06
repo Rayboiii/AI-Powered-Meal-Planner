@@ -7,13 +7,18 @@ from utils.auth_helper import (
 )
 from database.connection import execute_query
 from datetime import timedelta
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    new_password: str = Field(min_length=8, max_length=100)
 
 
 @router.post("/register", response_model=dict)
@@ -82,3 +87,18 @@ async def refresh(body: RefreshRequest):
         "refresh_token": create_refresh_token(token_data),
         "token_type": "bearer",
     }
+
+
+@router.post("/reset-password", response_model=dict)
+async def reset_password(body: ResetPasswordRequest):
+    """Reset password using email — no token required (self-service reset)"""
+    query = "SELECT user_id FROM users WHERE email = %s"
+    result = execute_query(query, (body.email,))
+    if not result:
+        raise HTTPException(status_code=404, detail="No account found with that email address")
+
+    new_hash = get_password_hash(body.new_password)
+    update_query = "UPDATE users SET password_hash = %s WHERE email = %s"
+    execute_query(update_query, (new_hash, body.email))
+
+    return {"message": "Password reset successfully"}

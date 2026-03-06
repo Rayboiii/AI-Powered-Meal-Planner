@@ -24,6 +24,7 @@ class AppConstants {
   static const String recentFoodsEndpoint = '/tracking/recent-foods';
   static const String suggestEndpoint = '/tracking/suggest';
   static const String weightEndpoint = '/tracking/weight';
+  static const String resetPasswordEndpoint = '/auth/reset-password';
   
   // Storage Keys
   static const String tokenKey = 'auth_token';
