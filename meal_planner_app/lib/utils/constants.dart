@@ -25,6 +25,7 @@ class AppConstants {
   static const String suggestEndpoint = '/tracking/suggest';
   static const String weightEndpoint = '/tracking/weight';
   static const String resetPasswordEndpoint = '/auth/reset-password';
+  static const String deleteAccountEndpoint = '/auth/account';
   
   // Storage Keys
   static const String tokenKey = 'auth_token';

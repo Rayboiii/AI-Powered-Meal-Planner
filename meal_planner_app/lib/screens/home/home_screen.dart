@@ -12,6 +12,9 @@ import '../tracking/meal_log_screen.dart';
 import '../insights/progress_screen.dart';
 import '../profile/profile_edit_screen.dart';
 import '../auth/login_screen.dart';
+import '../auth/change_password_screen.dart';
+import '../../services/api_service.dart';
+import '../../utils/constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -187,6 +190,114 @@ class _HomeTabState extends State<HomeTab> {
     }
   }
 
+  Future<void> _handleSignOut() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG)),
+        title: const Text('Sign Out', style: AppTheme.h3Style),
+        content: const Text('Are you sure you want to sign out?',
+            style: AppTheme.bodySmallStyle),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
+      profileProvider.clearProfile();
+      await authProvider.logout();
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen()));
+      }
+    }
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    // First confirmation
+    final confirm1 = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG)),
+        title: const Text('Delete Account', style: AppTheme.h3Style),
+        content: const Text(
+          'This will permanently delete your account and all your data. This action cannot be undone.',
+          style: AppTheme.bodySmallStyle,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    if (confirm1 != true || !mounted) return;
+
+    // Second confirmation
+    final confirm2 = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG)),
+        title: const Text('Are you absolutely sure?', style: AppTheme.h3Style),
+        content: const Text(
+          'All meals, plans, and progress data will be lost forever.',
+          style: AppTheme.bodySmallStyle,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No, keep my account')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            child: const Text('Yes, delete everything'),
+          ),
+        ],
+      ),
+    );
+    if (confirm2 != true || !mounted) return;
+
+    try {
+      await ApiService().delete(AppConstants.deleteAccountEndpoint,
+          includeAuth: true);
+      if (!mounted) return;
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
+      profileProvider.clearProfile();
+      await authProvider.logout();
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen()));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppTheme.errorColor,
+        ));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -329,19 +440,88 @@ class _HomeTabState extends State<HomeTab> {
                                       ),
                                     ),
                                     const SizedBox(width: 4),
-                                    // Avatar
-                                    GestureDetector(
-                                      onTap: () => Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                            builder: (_) =>
-                                                const ProfileEditScreen()),
+                                    // Avatar with dropdown menu
+                                    PopupMenuButton<String>(
+                                      offset: const Offset(0, 52),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            AppTheme.radiusLG),
                                       ),
+                                      onSelected: (value) {
+                                        switch (value) {
+                                          case 'edit':
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const ProfileEditScreen()),
+                                            );
+                                            break;
+                                          case 'password':
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const ChangePasswordScreen()),
+                                            );
+                                            break;
+                                          case 'delete':
+                                            _handleDeleteAccount();
+                                            break;
+                                          case 'signout':
+                                            _handleSignOut();
+                                            break;
+                                        }
+                                      },
+                                      itemBuilder: (_) => [
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(children: [
+                                            Icon(Icons.person_outline,
+                                                size: 18,
+                                                color: AppTheme.textSecondary),
+                                            SizedBox(width: 10),
+                                            Text('Edit Profile'),
+                                          ]),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'password',
+                                          child: Row(children: [
+                                            Icon(Icons.lock_outline,
+                                                size: 18,
+                                                color: AppTheme.textSecondary),
+                                            SizedBox(width: 10),
+                                            Text('Change Password'),
+                                          ]),
+                                        ),
+                                        const PopupMenuDivider(),
+                                        const PopupMenuItem(
+                                          value: 'signout',
+                                          child: Row(children: [
+                                            Icon(Icons.logout,
+                                                size: 18,
+                                                color: AppTheme.textSecondary),
+                                            SizedBox(width: 10),
+                                            Text('Sign Out'),
+                                          ]),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(children: [
+                                            Icon(Icons.delete_outline,
+                                                size: 18,
+                                                color: AppTheme.errorColor),
+                                            SizedBox(width: 10),
+                                            Text('Delete Account',
+                                                style: TextStyle(
+                                                    color:
+                                                        AppTheme.errorColor)),
+                                          ]),
+                                        ),
+                                      ],
                                       child: Container(
                                         width: 46,
                                         height: 46,
                                         decoration: BoxDecoration(
-                                          gradient:
-                                              _avatarGradient(initials),
+                                          gradient: _avatarGradient(initials),
                                           shape: BoxShape.circle,
                                           border: Border.all(
                                             color:

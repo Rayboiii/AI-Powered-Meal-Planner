@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from models.user import UserRegister, UserLogin, Token
+from utils.validation import get_current_user
 from utils.auth_helper import (
     get_password_hash, verify_password,
     create_access_token, create_refresh_token,
@@ -102,3 +103,15 @@ async def reset_password(body: ResetPasswordRequest):
     execute_query(update_query, (new_hash, body.email))
 
     return {"message": "Password reset successfully"}
+
+
+@router.delete("/account", response_model=dict)
+async def delete_account(current_user: dict = Depends(get_current_user)):
+    """Delete the authenticated user's account and all associated data"""
+    user_id = current_user['user_id']
+    execute_query("DELETE FROM meal_logs WHERE user_id = %s", (user_id,))
+    execute_query("DELETE FROM progress_tracking WHERE user_id = %s", (user_id,))
+    execute_query("DELETE FROM meal_plans WHERE user_id = %s", (user_id,))
+    execute_query("DELETE FROM user_profiles WHERE user_id = %s", (user_id,))
+    execute_query("DELETE FROM users WHERE user_id = %s", (user_id,))
+    return {"message": "Account deleted successfully"}
