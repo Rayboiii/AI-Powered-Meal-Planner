@@ -172,6 +172,9 @@ async def food_search(
                     "protein": meal["protein"],
                     "carbs": meal["carbs"],
                     "fats": meal["fats"],
+                    "ingredients": meal.get("ingredients", []),
+                    "serving_size_g": meal.get("serving_size_g"),
+                    "serving_unit": meal.get("serving_unit"),
                 })
     # Sort: names starting with query first, then others alphabetically
     results.sort(key=lambda m: (not m["name"].lower().startswith(q_lower), m["name"]))

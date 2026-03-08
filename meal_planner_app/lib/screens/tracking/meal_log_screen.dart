@@ -1027,6 +1027,10 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
   // Recently logged foods
   List<Map<String, dynamic>> _recentFoods = [];
 
+  // Selected meal base data + serving stepper
+  Map<String, dynamic>? _selectedMealBase;
+  double _servings = 1.0;
+
   @override
   void initState() {
     super.initState();
@@ -1088,9 +1092,17 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
   void _onFoodChanged() {
     final q = _foodItemsController.text.trim();
     if (q.isEmpty) {
-      setState(() => _foodSuggestions = []);
+      setState(() {
+        _foodSuggestions = [];
+        _selectedMealBase = null;
+      });
       _debounce?.cancel();
       return;
+    }
+    // If user is typing manually (not matching the selected base name), clear it
+    if (_selectedMealBase != null &&
+        q != (_selectedMealBase!['name'] as String)) {
+      setState(() => _selectedMealBase = null);
     }
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), () => _searchFood(q));
@@ -1133,6 +1145,19 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
     _foodItemsController.removeListener(_onFoodChanged);
     _foodItemsController.text = meal['name'] as String;
     _foodItemsController.addListener(_onFoodChanged);
+
+    setState(() {
+      _selectedMealBase = meal;
+      _servings = servings;
+      _foodSuggestions = [];
+    });
+    _updateForServings(servings);
+  }
+
+  void _updateForServings(double servings) {
+    if (_selectedMealBase == null) return;
+    final meal = _selectedMealBase!;
+    final baseCal = (meal['calories'] as num).toDouble();
     _caloriesController.text = (baseCal * servings).round().toString();
     _proteinController.text =
         ((meal['protein'] as num) * servings).toStringAsFixed(1);
@@ -1140,7 +1165,6 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
         ((meal['carbs'] as num) * servings).toStringAsFixed(1);
     _fatsController.text =
         ((meal['fats'] as num) * servings).toStringAsFixed(1);
-    setState(() => _foodSuggestions = []);
   }
 
   void _showIngredientSheet(BuildContext context, Map<String, dynamic> meal) {
@@ -1486,6 +1510,176 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
                   ),
                 ),
               const SizedBox(height: AppTheme.spaceSM),
+
+              // ── Serving size stepper (shown when a meal is selected) ─────
+              if (_selectedMealBase != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spaceMD, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLightest,
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.radiusMD),
+                    border: Border.all(
+                        color: AppTheme.primaryColor.withOpacity(0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.restaurant_outlined,
+                          size: 16, color: AppTheme.primaryColor),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Servings',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () {
+                          if (_servings > 0.5) {
+                            final newS =
+                                ((_servings - 0.5) * 10).round() / 10;
+                            setState(() => _servings = newS);
+                            _updateForServings(newS);
+                          }
+                        },
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: _servings > 0.5
+                                ? AppTheme.primaryColor
+                                : AppTheme.borderColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.remove,
+                              size: 16, color: Colors.white),
+                        ),
+                      ),
+                      Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 14),
+                        child: Text(
+                          '${_servings % 1 == 0 ? _servings.toInt() : _servings}×',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          if (_servings < 10) {
+                            final newS =
+                                ((_servings + 0.5) * 10).round() / 10;
+                            setState(() => _servings = newS);
+                            _updateForServings(newS);
+                          }
+                        },
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: _servings < 10
+                                ? AppTheme.primaryColor
+                                : AppTheme.borderColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.add,
+                              size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spaceSM),
+              ],
+
+              // ── Ingredient list (shown when meal has ingredients) ─────────
+              if (_selectedMealBase != null) ...[
+                Builder(builder: (context) {
+                  final rawIngs = _selectedMealBase!['ingredients'];
+                  final ingredients = rawIngs is List
+                      ? rawIngs.cast<Map<String, dynamic>>()
+                      : <Map<String, dynamic>>[];
+                  if (ingredients.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ingredients (${_servings % 1 == 0 ? _servings.toInt() : _servings} serving${_servings == 1 ? '' : 's'})',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppTheme.spaceMD, vertical: 8),
+                        decoration: BoxDecoration(
+                          color:
+                              Theme.of(context).colorScheme.surface,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusMD),
+                          border:
+                              Border.all(color: AppTheme.borderColor),
+                        ),
+                        child: Column(
+                          children: ingredients.map((ing) {
+                            final scaledAmt =
+                                ((ing['amount'] as num) * _servings);
+                            final amtStr = scaledAmt ==
+                                    scaledAmt.roundToDouble()
+                                ? scaledAmt.round().toString()
+                                : scaledAmt.toStringAsFixed(1);
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.primaryColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      ing['name'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '$amtStr ${ing['unit']}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spaceSM),
+                    ],
+                  );
+                }),
+              ],
 
               CustomTextField(
                 label: 'Calories *',
