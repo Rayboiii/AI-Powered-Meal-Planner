@@ -467,6 +467,7 @@ class _MealLogScreenState extends State<MealLogScreen> {
                         final log = tracking.todayMeals[index];
                         return _SwipeToDeleteMealCard(
                           log: log,
+                          onEditTap: () => _showEditMealDialog(context, log),
                           onDeleted: () async {
                             if (log.logId == null) return;
                             final provider = Provider.of<TrackingProvider>(
@@ -505,6 +506,33 @@ class _MealLogScreenState extends State<MealLogScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showEditMealDialog(BuildContext context, MealLog log) async {
+    final profile =
+        Provider.of<ProfileProvider>(context, listen: false).profile;
+    final calTarget = profile?.dailyCalorieTarget?.toDouble() ??
+        _cachedCalTarget ??
+        2000.0;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AddMealBottomSheet(
+        logId: log.logId,
+        initialFoodItems: log.foodItems,
+        initialCalories: log.calories,
+        initialProtein: log.protein,
+        initialCarbs: log.carbs,
+        initialFats: log.fats,
+        initialMealType: log.mealType,
+        initialBaseMealData: log.baseMealData,
+        initialServings: log.servings,
+        dailyCalTarget: calTarget,
+      ),
+    );
+    _fetchSuggestion();
   }
 
   Future<void> _showAddMealDialog(BuildContext context,
@@ -785,9 +813,10 @@ class _HistoryMealCard extends StatelessWidget {
 class _SwipeToDeleteMealCard extends StatelessWidget {
   final MealLog log;
   final VoidCallback onDeleted;
+  final VoidCallback onEditTap;
 
   const _SwipeToDeleteMealCard(
-      {required this.log, required this.onDeleted});
+      {required this.log, required this.onDeleted, required this.onEditTap});
 
   @override
   Widget build(BuildContext context) {
@@ -846,7 +875,10 @@ class _SwipeToDeleteMealCard extends StatelessWidget {
         );
       },
       onDismissed: (_) => onDeleted(),
-      child: _MealLogCard(log: log),
+      child: GestureDetector(
+        onTap: onEditTap,
+        child: _MealLogCard(log: log),
+      ),
     );
   }
 }
@@ -992,6 +1024,10 @@ class AddMealBottomSheet extends StatefulWidget {
   final double? initialFats;
   final String? initialMealType;
   final double dailyCalTarget;
+  // Edit mode
+  final int? logId;
+  final Map<String, dynamic>? initialBaseMealData;
+  final double? initialServings;
 
   const AddMealBottomSheet({
     Key? key,
@@ -1002,6 +1038,9 @@ class AddMealBottomSheet extends StatefulWidget {
     this.initialFats,
     this.initialMealType,
     this.dailyCalTarget = 2000.0,
+    this.logId,
+    this.initialBaseMealData,
+    this.initialServings,
   }) : super(key: key);
 
   @override
@@ -1053,6 +1092,11 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
       _selectedMealType = widget.initialMealType!;
     }
     _foodItemsController.addListener(_onFoodChanged);
+    // Edit mode: restore base meal so serving stepper + ingredients show
+    if (widget.initialBaseMealData != null) {
+      _selectedMealBase = widget.initialBaseMealData;
+      _servings = widget.initialServings ?? 1.0;
+    }
     _loadRecentFoods();
   }
 
@@ -1287,23 +1331,33 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
         fats: _fatsController.text.isEmpty
             ? null
             : double.parse(_fatsController.text),
+        baseMealData: _selectedMealBase,
+        servings: _selectedMealBase != null ? _servings : null,
       );
 
       final provider = Provider.of<TrackingProvider>(context, listen: false);
-      final success = await provider.logMeal(meal);
+      final bool success;
+      if (widget.logId != null) {
+        success = await provider.updateMeal(widget.logId!, meal);
+      } else {
+        success = await provider.logMeal(meal);
+      }
 
       if (success && mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Meal logged successfully!'),
+          SnackBar(
+            content: Text(widget.logId != null
+                ? 'Meal updated successfully!'
+                : 'Meal logged successfully!'),
             backgroundColor: AppTheme.successColor,
           ),
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(provider.errorMessage ?? 'Failed to log meal'),
+            content: Text(provider.errorMessage ??
+                (widget.logId != null ? 'Failed to update meal' : 'Failed to log meal')),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -1343,7 +1397,8 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
                 ),
               ),
               const SizedBox(height: AppTheme.spaceMD),
-              const Text('Log a Meal', style: AppTheme.h3Style),
+              Text(widget.logId != null ? 'Edit Meal' : 'Log a Meal',
+                  style: AppTheme.h3Style),
               const SizedBox(height: AppTheme.spaceMD),
 
               // Meal Type Selection
@@ -1725,7 +1780,7 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
               Consumer<TrackingProvider>(
                 builder: (context, provider, child) {
                   return CustomButton(
-                    text: 'Log Meal',
+                    text: widget.logId != null ? 'Update Meal' : 'Log Meal',
                     onPressed: _handleLogMeal,
                     isLoading: provider.isLoading,
                   );

@@ -1,5 +1,6 @@
+import json as _json
 from fastapi import APIRouter, Depends, HTTPException, Query
-from models.meal_log import MealLog, ProgressQuery
+from models.meal_log import MealLog, MealLogUpdate, ProgressQuery
 from database.connection import execute_query
 from utils.validation import get_current_user
 from ai_engine.meal_planner import (
@@ -21,20 +22,63 @@ async def log_meal(
     current_user: dict = Depends(get_current_user)
 ):
     """F006: Log daily meals"""
+    base_data_json = _json.dumps(meal.base_meal_data) if meal.base_meal_data else None
     query = """
-        INSERT INTO meal_logs (user_id, meal_date, meal_type, food_items, calories, protein, carbs, fats)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO meal_logs (user_id, meal_date, meal_type, food_items, calories, protein, carbs, fats, base_meal_data, servings)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     log_id = execute_query(
         query,
         (current_user['user_id'], meal.meal_date, meal.meal_type, meal.food_items,
-         meal.calories, meal.protein, meal.carbs, meal.fats)
+         meal.calories, meal.protein, meal.carbs, meal.fats,
+         base_data_json, meal.servings)
     )
 
     if not log_id:
         raise HTTPException(status_code=500, detail="Failed to log meal")
 
     return {"message": "Meal logged successfully", "log_id": log_id}
+
+
+@router.put("/log/{log_id}", response_model=dict)
+async def update_meal_log(
+    log_id: int,
+    update: MealLogUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update an existing meal log entry"""
+    check = execute_query(
+        "SELECT log_id FROM meal_logs WHERE log_id = %s AND user_id = %s",
+        (log_id, current_user['user_id'])
+    )
+    if not check:
+        raise HTTPException(status_code=404, detail="Meal log not found")
+
+    fields, values = [], []
+    if update.food_items is not None:
+        fields.append("food_items = %s"); values.append(update.food_items)
+    if update.meal_type is not None:
+        fields.append("meal_type = %s"); values.append(update.meal_type)
+    if update.calories is not None:
+        fields.append("calories = %s"); values.append(update.calories)
+    if update.protein is not None:
+        fields.append("protein = %s"); values.append(update.protein)
+    if update.carbs is not None:
+        fields.append("carbs = %s"); values.append(update.carbs)
+    if update.fats is not None:
+        fields.append("fats = %s"); values.append(update.fats)
+    if update.servings is not None:
+        fields.append("servings = %s"); values.append(update.servings)
+
+    if not fields:
+        return {"message": "Nothing to update"}
+
+    values.extend([log_id, current_user['user_id']])
+    execute_query(
+        f"UPDATE meal_logs SET {', '.join(fields)} WHERE log_id = %s AND user_id = %s",
+        tuple(values)
+    )
+    return {"message": "Meal log updated successfully"}
 
 
 @router.get("/date", response_model=dict)
@@ -49,7 +93,7 @@ async def get_meals_by_date(
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
     query = """
-        SELECT log_id, meal_date, meal_type, food_items, calories, protein, carbs, fats
+        SELECT log_id, meal_date, meal_type, food_items, calories, protein, carbs, fats, base_meal_data, servings
         FROM meal_logs
         WHERE user_id = %s AND meal_date = %s
         ORDER BY log_id ASC
@@ -57,6 +101,9 @@ async def get_meals_by_date(
     logs = execute_query(query, (current_user['user_id'], date))
     if not logs:
         return {"logs": [], "total_calories": 0}
+    for log in logs:
+        if log.get('base_meal_data') and isinstance(log['base_meal_data'], str):
+            log['base_meal_data'] = _json.loads(log['base_meal_data'])
     total_calories = sum(log['calories'] for log in logs)
     return {"logs": logs, "total_calories": total_calories}
 
@@ -65,7 +112,7 @@ async def get_meals_by_date(
 async def get_today_logs(current_user: dict = Depends(get_current_user)):
     """Get today's meal logs"""
     query = """
-        SELECT log_id, meal_date, meal_type, food_items, calories, protein, carbs, fats
+        SELECT log_id, meal_date, meal_type, food_items, calories, protein, carbs, fats, base_meal_data, servings
         FROM meal_logs
         WHERE user_id = %s AND meal_date = CURDATE()
         ORDER BY log_id DESC
@@ -75,6 +122,9 @@ async def get_today_logs(current_user: dict = Depends(get_current_user)):
     if not logs:
         return {"message": "No meals logged today", "logs": [], "total_calories": 0}
 
+    for log in logs:
+        if log.get('base_meal_data') and isinstance(log['base_meal_data'], str):
+            log['base_meal_data'] = _json.loads(log['base_meal_data'])
     total_calories = sum(log['calories'] for log in logs)
     return {"logs": logs, "total_calories": total_calories}
 

@@ -73,6 +73,28 @@ class TrackingProvider with ChangeNotifier {
     }
   }
   
+  Future<bool> updateMeal(int logId, MealLog meal) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _api.put(
+        '${AppConstants.deleteMealEndpoint}$logId',
+        meal.toJson(),
+        includeAuth: true,
+      );
+      await fetchTodayMeals();
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> deleteMeal(int logId) async {
     // Remove optimistically so the Dismissible widget leaves the tree before
     // the async API call triggers a rebuild (avoids "dismissed widget still

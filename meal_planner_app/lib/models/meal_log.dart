@@ -7,7 +7,9 @@ class MealLog {
   final double? protein;
   final double? carbs;
   final double? fats;
-  
+  final Map<String, dynamic>? baseMealData;
+  final double? servings;
+
   MealLog({
     this.logId,
     required this.mealDate,
@@ -17,8 +19,10 @@ class MealLog {
     this.protein,
     this.carbs,
     this.fats,
+    this.baseMealData,
+    this.servings,
   });
-  
+
   factory MealLog.fromJson(Map<String, dynamic> json) {
     return MealLog(
       logId: json['log_id'],
@@ -29,9 +33,11 @@ class MealLog {
       protein: json['protein']?.toDouble(),
       carbs: json['carbs']?.toDouble(),
       fats: json['fats']?.toDouble(),
+      baseMealData: json['base_meal_data'] as Map<String, dynamic>?,
+      servings: (json['servings'] as num?)?.toDouble(),
     );
   }
-  
+
   Map<String, dynamic> toJson() {
     return {
       'meal_date': mealDate,
@@ -41,6 +47,8 @@ class MealLog {
       'protein': protein,
       'carbs': carbs,
       'fats': fats,
+      if (baseMealData != null) 'base_meal_data': baseMealData,
+      if (servings != null) 'servings': servings,
     };
   }
 }
