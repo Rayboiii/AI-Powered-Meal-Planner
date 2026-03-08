@@ -7,7 +7,6 @@ import '../../providers/profile_provider.dart';
 import '../../utils/app_theme.dart';
 import '../../widgets/skeleton_loader.dart';
 import 'generate_plan_screen.dart';
-import 'customize_meal_screen.dart';
 import '../tracking/meal_log_screen.dart';
 
 class MealPlanScreen extends StatefulWidget {
@@ -606,21 +605,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                   color: AppTheme.successColor,
                   tooltip: 'Log this meal',
                   onPressed: () => _logMealFromPlan(meal),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  color: AppTheme.primaryColor,
-                  tooltip: 'Customize meal',
-                  onPressed: () {
-                    Navigator.of(context)
-                        .push(MaterialPageRoute(
-                          builder: (_) => CustomizeMealScreen(
-                            mealDate: mealDate,
-                            meal: meal,
-                          ),
-                        ))
-                        .then((_) => _loadMealPlan());
-                  },
                 ),
               ],
             ),

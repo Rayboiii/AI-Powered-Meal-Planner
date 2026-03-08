@@ -498,9 +498,12 @@ class _HomeTabState extends State<HomeTab> {
                                           child: Row(children: [
                                             Icon(Icons.logout,
                                                 size: 18,
-                                                color: AppTheme.textSecondary),
+                                                color: AppTheme.errorColor),
                                             SizedBox(width: 10),
-                                            Text('Sign Out'),
+                                            Text('Sign Out',
+                                                style: TextStyle(
+                                                    color: AppTheme.errorColor,
+                                                    fontWeight: FontWeight.w600)),
                                           ]),
                                         ),
                                         const PopupMenuItem(
@@ -1026,12 +1029,13 @@ class _HomeTabState extends State<HomeTab> {
                                 }
                               },
                               icon: const Icon(Icons.logout,
-                                  size: 16, color: AppTheme.textTertiary),
+                                  size: 16, color: AppTheme.errorColor),
                               label: const Text(
                                 'Sign out',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: AppTheme.textTertiary,
+                                  color: AppTheme.errorColor,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
