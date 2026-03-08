@@ -121,22 +121,63 @@ class _ProgressScreenState extends State<ProgressScreen> {
               'Your average of ${avgCal.toStringAsFixed(0)} kcal is right in your goal range.',
         ));
       } else if (diff > 0) {
+        final String overTitle;
+        final String overBody;
+        final Color overColor;
+        final IconData overIcon;
+        final diffStr = diff.toStringAsFixed(0);
+        if (diff < 300) {
+          overTitle = 'Slightly over goal';
+          overBody  = 'You averaged $diffStr kcal above your daily target. '
+              'Small adjustments add up over time.';
+          overColor = AppTheme.warningColor;
+          overIcon  = Icons.info_outline;
+        } else if (diff < 600) {
+          overTitle = 'Over your calorie goal';
+          overBody  = 'You averaged $diffStr kcal above your daily target. '
+              'Try reducing portion sizes or swapping high-calorie snacks.';
+          overColor = AppTheme.warningColor;
+          overIcon  = Icons.warning_amber_outlined;
+        } else {
+          overTitle = 'Well over your goal';
+          overBody  = 'You averaged $diffStr kcal above your daily target. '
+              'Consider reviewing your meal portions and snack choices.';
+          overColor = AppTheme.errorColor;
+          overIcon  = Icons.warning_outlined;
+        }
         insights.add(_Insight(
-          icon: Icons.info_outline,
-          color: AppTheme.warningColor,
-          title: 'Slightly over goal',
-          body:
-              'You averaged ${diff.toStringAsFixed(0)} kcal above your daily target. '
-              'Small adjustments add up over time.',
+          icon: overIcon, color: overColor,
+          title: overTitle, body: overBody,
         ));
       } else {
+        final String underTitle;
+        final String underBody;
+        final Color underColor;
+        final IconData underIcon;
+        final absDiff = diff.abs();
+        final diffStr = absDiff.toStringAsFixed(0);
+        if (absDiff < 300) {
+          underTitle = 'Slightly under goal';
+          underBody  = 'You averaged $diffStr kcal below target. '
+              'A small snack could help you hit your goal.';
+          underColor = AppTheme.infoColor;
+          underIcon  = Icons.info_outline;
+        } else if (absDiff < 600) {
+          underTitle = 'Under your calorie goal';
+          underBody  = 'You averaged $diffStr kcal below target. '
+              'Make sure you\'re fuelling your body adequately.';
+          underColor = AppTheme.warningColor;
+          underIcon  = Icons.warning_amber_outlined;
+        } else {
+          underTitle = 'Significantly under goal';
+          underBody  = 'You averaged $diffStr kcal below target. '
+              'Not eating enough can affect your energy and metabolism.';
+          underColor = AppTheme.errorColor;
+          underIcon  = Icons.warning_outlined;
+        }
         insights.add(_Insight(
-          icon: Icons.info_outline,
-          color: AppTheme.infoColor,
-          title: 'Under calorie goal',
-          body:
-              'You averaged ${diff.abs().toStringAsFixed(0)} kcal below target. '
-              'Make sure you\'re fuelling your body adequately.',
+          icon: underIcon, color: underColor,
+          title: underTitle, body: underBody,
         ));
       }
     }

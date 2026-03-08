@@ -71,20 +71,56 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     return disabled;
   }
 
-  final List<String> _activityLevels = [
-    'sedentary',
-    'lightly_active',
-    'moderately_active',
-    'very_active',
-    'extra_active',
-  ];
+  static const _activityLevelInfo = <String, Map<String, dynamic>>{
+    'sedentary': {
+      'label': 'Sedentary',
+      'desc': 'Little or no exercise, mostly desk work',
+      'icon': Icons.weekend,
+    },
+    'lightly_active': {
+      'label': 'Lightly Active',
+      'desc': 'Light exercise or walking 1–3 days/week',
+      'icon': Icons.directions_walk,
+    },
+    'moderately_active': {
+      'label': 'Moderately Active',
+      'desc': 'Moderate exercise or sports 3–5 days/week',
+      'icon': Icons.directions_bike,
+    },
+    'very_active': {
+      'label': 'Very Active',
+      'desc': 'Hard exercise or sports 6–7 days/week',
+      'icon': Icons.fitness_center,
+    },
+    'extra_active': {
+      'label': 'Extra Active',
+      'desc': 'Very hard exercise plus a physical job',
+      'icon': Icons.sports,
+    },
+  };
 
-  final List<String> _healthGoals = [
-    'lose weight',
-    'maintain weight',
-    'gain weight',
-    'build muscle',
-  ];
+  static const _healthGoalInfo = <String, Map<String, dynamic>>{
+    'lose weight': {
+      'label': 'Lose Weight',
+      'desc': 'Calorie deficit to reduce body fat',
+      'icon': Icons.trending_down,
+    },
+    'maintain weight': {
+      'label': 'Maintain Weight',
+      'desc': 'Balance calorie intake with energy output',
+      'icon': Icons.trending_flat,
+    },
+    'gain weight': {
+      'label': 'Gain Weight',
+      'desc': 'Calorie surplus for healthy mass gain',
+      'icon': Icons.trending_up,
+    },
+    'build muscle': {
+      'label': 'Build Muscle',
+      'desc': 'High-protein focus with strength training',
+      'icon': Icons.fitness_center,
+    },
+  };
 
   @override
   void initState() {
@@ -324,24 +360,87 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     );
   }
 
-  InputDecoration _dropdownDecoration() {
-    return InputDecoration(
-      filled: true,
-      fillColor: AppTheme.surfaceColor,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-        borderSide: const BorderSide(color: AppTheme.borderColor),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-        borderSide: const BorderSide(color: AppTheme.borderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-      ),
+  Widget _buildOptionCards({
+    required Map<String, Map<String, dynamic>> info,
+    required String? selected,
+    required void Function(String) onSelect,
+  }) {
+    return Column(
+      children: info.entries.map((entry) {
+        final key = entry.key;
+        final meta = entry.value;
+        final isSelected = key == selected;
+        return GestureDetector(
+          onTap: () => onSelect(key),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppTheme.primaryColor.withOpacity(0.08)
+                  : AppTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+              border: Border.all(
+                color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                width: isSelected ? 1.5 : 1.0,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppTheme.primaryColor.withOpacity(0.15)
+                        : AppTheme.borderColor.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    meta['icon'] as IconData,
+                    size: 20,
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        meta['label'] as String,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected
+                              ? AppTheme.primaryColor
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        meta['desc'] as String,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  const Icon(
+                    Icons.check_circle,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -498,23 +597,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 ),
               ),
               const SizedBox(height: AppTheme.spaceSM),
-              DropdownButtonFormField<String>(
-                value: _selectedActivityLevel,
-                decoration: _dropdownDecoration(),
-                items: _activityLevels.map((level) {
-                  return DropdownMenuItem(
-                    value: level,
-                    child: Text(
-                      level.replaceAll('_', ' ').toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) =>
-                    setState(() => _selectedActivityLevel = value),
+              _buildOptionCards(
+                info: _activityLevelInfo,
+                selected: _selectedActivityLevel,
+                onSelect: (v) => setState(() => _selectedActivityLevel = v),
               ),
               const SizedBox(height: AppTheme.spaceMD),
 
@@ -528,23 +614,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 ),
               ),
               const SizedBox(height: AppTheme.spaceSM),
-              DropdownButtonFormField<String>(
-                value: _selectedHealthGoal,
-                decoration: _dropdownDecoration(),
-                items: _healthGoals.map((goal) {
-                  return DropdownMenuItem(
-                    value: goal,
-                    child: Text(
-                      goal.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) =>
-                    setState(() => _selectedHealthGoal = value),
+              _buildOptionCards(
+                info: _healthGoalInfo,
+                selected: _selectedHealthGoal,
+                onSelect: (v) => setState(() => _selectedHealthGoal = v),
               ),
               const SizedBox(height: AppTheme.spaceMD),
 

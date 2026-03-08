@@ -4,7 +4,7 @@ from models.meal_log import MealLog, MealLogUpdate, ProgressQuery
 from database.connection import execute_query
 from utils.validation import get_current_user
 from ai_engine.meal_planner import (
-    MEAL_DATABASE, _filter_meals, _parse_csv, _MEAL_CAL_SPLIT,
+    MEAL_DATABASE, MEAL_INSTRUCTIONS, _filter_meals, _parse_csv, _MEAL_CAL_SPLIT,
     calculate_bmr, calculate_tdee, adjust_calories_for_goal, calculate_macros,
     calorie_range,
 )
@@ -223,6 +223,7 @@ async def food_search(
                     "carbs": meal["carbs"],
                     "fats": meal["fats"],
                     "ingredients": meal.get("ingredients", []),
+                    "instructions": MEAL_INSTRUCTIONS.get(meal["name"], []),
                     "serving_size_g": meal.get("serving_size_g"),
                     "serving_unit": meal.get("serving_unit"),
                 })
@@ -397,16 +398,17 @@ async def suggest_next_meal(current_user: dict = Depends(get_current_user)):
             for ing in meal.get("ingredients", [])
         ]
         suggestions.append({
-            "name":        meal["name"],
-            "category":    next_meal_type,
-            "calories":    s_cal,
-            "protein":     s_pro,
-            "carbs":       s_cbs,
-            "fats":        s_fat,
-            "match_score": s["score"],
-            "reason":      f"Covers {cal_pct}% of remaining calories and {pro_pct}% of remaining protein",
-            "serving":     serving_label,
-            "ingredients": scaled_ingredients,
+            "name":         meal["name"],
+            "category":     next_meal_type,
+            "calories":     s_cal,
+            "protein":      s_pro,
+            "carbs":        s_cbs,
+            "fats":         s_fat,
+            "match_score":  s["score"],
+            "reason":       f"Covers {cal_pct}% of remaining calories and {pro_pct}% of remaining protein",
+            "serving":      serving_label,
+            "ingredients":  scaled_ingredients,
+            "instructions": MEAL_INSTRUCTIONS.get(meal["name"], []),
         })
 
     cal_range = calorie_range(cal_target)

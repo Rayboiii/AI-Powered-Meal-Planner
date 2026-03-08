@@ -1211,93 +1211,166 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
         ((meal['fats'] as num) * servings).toStringAsFixed(1);
   }
 
-  void _showIngredientSheet(BuildContext context, Map<String, dynamic> meal) {
+  void _showRecipeSheet(BuildContext context, Map<String, dynamic> meal) {
     final ingredients =
         (meal['ingredients'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
             [];
-    if (ingredients.isEmpty) return;
+    final instructions =
+        (meal['instructions'] as List<dynamic>?)?.cast<String>() ?? [];
+    if (ingredients.isEmpty && instructions.isEmpty) return;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).colorScheme.surface,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(AppTheme.radius2XL),
-            topRight: Radius.circular(AppTheme.radius2XL),
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        builder: (ctx, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).colorScheme.surface,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppTheme.radius2XL),
+              topRight: Radius.circular(AppTheme.radius2XL),
+            ),
           ),
-        ),
-        child: ListView(
-          padding: const EdgeInsets.all(AppTheme.spaceLG),
-          shrinkWrap: true,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.borderColor,
-                  borderRadius: BorderRadius.circular(2),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(AppTheme.spaceLG),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.borderColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: AppTheme.spaceMD),
-            Text(meal['name'] as String, style: AppTheme.h3Style),
-            const SizedBox(height: 4),
-            Text(
-              '${meal['calories']} kcal · P ${meal['protein']}g · C ${meal['carbs']}g · F ${meal['fats']}g',
-              style: AppTheme.bodySmallStyle,
-            ),
-            const SizedBox(height: AppTheme.spaceMD),
-            const Divider(),
-            const SizedBox(height: AppTheme.spaceSM),
-            const Text(
-              'Ingredients (1 serving)',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
+              const SizedBox(height: AppTheme.spaceMD),
+              Text(meal['name'] as String, style: AppTheme.h3Style),
+              const SizedBox(height: 4),
+              Text(
+                '${meal['calories']} kcal · P ${meal['protein']}g · C ${meal['carbs']}g · F ${meal['fats']}g',
+                style: AppTheme.bodySmallStyle,
               ),
-            ),
-            const SizedBox(height: AppTheme.spaceSM),
-            ...ingredients.map((ing) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        ing['name'] as String,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w500,
+              const SizedBox(height: AppTheme.spaceMD),
+              const Divider(),
+
+              // ── Ingredients section ───────────────────────────────────────
+              if (ingredients.isNotEmpty) ...[
+                const SizedBox(height: AppTheme.spaceSM),
+                const Text(
+                  'Ingredients (1 serving)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spaceSM),
+                ...ingredients.map((ing) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            ing['name'] as String,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${ing['amount']} ${ing['unit']}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '${ing['amount']} ${ing['unit']}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
+                  );
+                }),
+              ],
+
+              // ── How to Cook section ───────────────────────────────────────
+              if (instructions.isNotEmpty) ...[
+                const SizedBox(height: AppTheme.spaceMD),
+                const Divider(),
+                const SizedBox(height: AppTheme.spaceSM),
+                const Text(
+                  'How to Cook',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
-              );
-            }),
-            const SizedBox(height: AppTheme.spaceLG),
-          ],
+                const SizedBox(height: AppTheme.spaceSM),
+                ...instructions.asMap().entries.map((entry) {
+                  final step = entry.key + 1;
+                  final text = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$step',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Text(
+                              text,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textPrimary,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              const SizedBox(height: AppTheme.spaceLG),
+            ],
+          ),
         ),
       ),
     );
@@ -1522,8 +1595,9 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
                         const Divider(height: 1, thickness: 1),
                     itemBuilder: (context, i) {
                       final meal = _foodSuggestions[i];
-                      final hasIngredients =
-                          (meal['ingredients'] as List?)?.isNotEmpty ?? false;
+                      final hasRecipe =
+                          ((meal['ingredients'] as List?)?.isNotEmpty ?? false) ||
+                          ((meal['instructions'] as List?)?.isNotEmpty ?? false);
                       return ListTile(
                         dense: true,
                         title: Text(
@@ -1544,13 +1618,13 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (hasIngredients)
+                            if (hasRecipe)
                               GestureDetector(
                                 onTap: () =>
-                                    _showIngredientSheet(context, meal),
+                                    _showRecipeSheet(context, meal),
                                 child: const Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 4),
-                                  child: Icon(Icons.info_outline,
+                                  child: Icon(Icons.menu_book_outlined,
                                       size: 18,
                                       color: AppTheme.textTertiary),
                                 ),
@@ -1730,6 +1804,33 @@ class _AddMealBottomSheetState extends State<AddMealBottomSheet> {
                           }).toList(),
                         ),
                       ),
+                      // ── View Recipe link ─────────────────────────────
+                      if ((_selectedMealBase!['instructions'] as List?)
+                              ?.isNotEmpty ??
+                          false)
+                        GestureDetector(
+                          onTap: () =>
+                              _showRecipeSheet(context, _selectedMealBase!),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.menu_book_outlined,
+                                    size: 14,
+                                    color: AppTheme.primaryColor),
+                                SizedBox(width: 4),
+                                Text(
+                                  'View Recipe',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: AppTheme.spaceSM),
                     ],
                   );
