@@ -47,10 +47,10 @@ class ProfileProvider with ChangeNotifier {
         profile.toJson(),
         includeAuth: true,
       );
-      
-      _profile = profile;
-      _isLoading = false;
-      notifyListeners();
+
+      // Re-fetch so computed targets (calories, macros) are recalculated
+      // by the backend and reflected immediately across all screens.
+      await fetchProfile();
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
