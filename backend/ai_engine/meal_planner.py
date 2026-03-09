@@ -115,20 +115,20 @@ def calculate_macros(calories: float, goal: str) -> Dict[str, float]:
     Daily macro targets in grams, derived from calorie target and goal.
 
     Macro split by goal:
-        Muscle/Gain  → 30 % protein · 40 % carbs · 30 % fat
-        Lose weight  → 35 % protein · 35 % carbs · 30 % fat
-        Maintain     → 25 % protein · 45 % carbs · 30 % fat
+        Muscle/Gain  → 25 % protein · 48 % carbs · 27 % fat
+        Lose weight  → 20 % protein · 53 % carbs · 27 % fat
+        Maintain     → 20 % protein · 53 % carbs · 27 % fat
 
     Returns:
         Dict with keys 'protein', 'carbs', 'fats' (all in grams).
     """
     goal_lower = goal.lower()
     if "muscle" in goal_lower or "gain" in goal_lower:
-        p, c, f = 0.30, 0.40, 0.30
+        p, c, f = 0.25, 0.48, 0.27
     elif "lose" in goal_lower:
-        p, c, f = 0.35, 0.35, 0.30
+        p, c, f = 0.20, 0.53, 0.27
     else:
-        p, c, f = 0.25, 0.45, 0.30
+        p, c, f = 0.20, 0.53, 0.27
 
     return {
         "protein": round((calories * p) / 4, 1),   # 4 kcal per gram
