@@ -26,6 +26,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Set<String> _selectedPreferences = {};
   Set<String> _selectedAllergens = {};
 
+  String _selectedGender = 'male';
   String? _selectedActivityLevel;
   String? _selectedHealthGoal;
 
@@ -148,6 +149,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         age: int.tryParse(_ageController.text),
         weight: double.parse(_weightController.text),
         height: double.parse(_heightController.text),
+        gender: _selectedGender,
         dietaryPreferences: _selectedPreferences.isEmpty
             ? 'none'
             : _selectedPreferences.map((e) => e.toLowerCase()).join(', '),
@@ -539,6 +541,66 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: AppTheme.spaceMD),
+
+                      const Text(
+                        'Biological Sex',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Used to calculate your accurate calorie target',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textTertiary),
+                      ),
+                      const SizedBox(height: AppTheme.spaceSM),
+                      Row(
+                        children: [
+                          {'value': 'male',   'label': 'Male',   'icon': Icons.male},
+                          {'value': 'female', 'label': 'Female', 'icon': Icons.female},
+                          {'value': 'other',  'label': 'Other',  'icon': Icons.person},
+                        ].map((opt) {
+                          final selected = _selectedGender == opt['value'];
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selectedGender = opt['value'] as String),
+                              child: Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: selected ? AppTheme.primaryColor : Colors.transparent,
+                                  border: Border.all(
+                                    color: selected ? AppTheme.primaryColor : AppTheme.borderColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      opt['icon'] as IconData,
+                                      size: 20,
+                                      color: selected ? Colors.white : AppTheme.textSecondary,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      opt['label'] as String,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: selected ? Colors.white : AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
                       const SizedBox(height: AppTheme.spaceMD),
 

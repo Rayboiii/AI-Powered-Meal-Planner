@@ -66,8 +66,8 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
           ),
         ],
       ),
-      body: Consumer<MealPlanProvider>(
-        builder: (context, provider, child) {
+      body: Consumer2<MealPlanProvider, ProfileProvider>(
+        builder: (context, provider, profileProvider, child) {
           if (provider.isLoading) {
             return const MealPlanSkeleton();
           }
@@ -163,39 +163,48 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                       ),
                     ),
                     const SizedBox(height: AppTheme.spaceMD),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildNutrientInfo(
-                          'Calories',
-                          () {
-                            final t = mealPlan.nutritionalTarget;
-                            final min = t['calories_min'];
-                            final max = t['calories_max'];
-                            if (min != null && max != null) {
-                              return '${(min as num).toStringAsFixed(0)}–${(max as num).toStringAsFixed(0)}';
-                            }
-                            return '${(t['daily_calories'] as num?)?.toStringAsFixed(0) ?? 'N/A'}';
-                          }(),
-                          Icons.local_fire_department,
-                        ),
-                        _buildNutrientInfo(
-                          'Protein',
-                          '${mealPlan.nutritionalTarget['protein_g']?.toStringAsFixed(0) ?? 'N/A'}g',
-                          Icons.egg,
-                        ),
-                        _buildNutrientInfo(
-                          'Carbs',
-                          '${mealPlan.nutritionalTarget['carbs_g']?.toStringAsFixed(0) ?? 'N/A'}g',
-                          Icons.bakery_dining,
-                        ),
-                        _buildNutrientInfo(
-                          'Fats',
-                          '${mealPlan.nutritionalTarget['fats_g']?.toStringAsFixed(0) ?? 'N/A'}g',
-                          Icons.water_drop,
-                        ),
-                      ],
-                    ),
+                    Builder(builder: (context) {
+                      final profile = profileProvider.profile;
+                      final t = mealPlan.nutritionalTarget;
+
+                      // Calories: prefer live profile target (same as progress
+                      // marker), fall back to the stored plan value.
+                      String calDisplay;
+                      if (profile?.dailyCalorieTargetMin != null &&
+                          profile?.dailyCalorieTargetMax != null) {
+                        calDisplay =
+                            '${profile!.dailyCalorieTargetMin}–${profile.dailyCalorieTargetMax}';
+                      } else if (profile?.dailyCalorieTarget != null) {
+                        calDisplay = '${profile!.dailyCalorieTarget}';
+                      } else {
+                        final min = t['calories_min'];
+                        final max = t['calories_max'];
+                        calDisplay = (min != null && max != null)
+                            ? '${(min as num).toStringAsFixed(0)}–${(max as num).toStringAsFixed(0)}'
+                            : '${(t['daily_calories'] as num?)?.toStringAsFixed(0) ?? 'N/A'}';
+                      }
+
+                      final proteinDisplay = profile?.dailyProteinTarget != null
+                          ? '${profile!.dailyProteinTarget!.toStringAsFixed(0)}g'
+                          : '${(t['protein_g'] as num?)?.toStringAsFixed(0) ?? 'N/A'}g';
+                      final carbsDisplay = profile?.dailyCarbsTarget != null
+                          ? '${profile!.dailyCarbsTarget!.toStringAsFixed(0)}g'
+                          : '${(t['carbs_g'] as num?)?.toStringAsFixed(0) ?? 'N/A'}g';
+                      final fatsDisplay = profile?.dailyFatsTarget != null
+                          ? '${profile!.dailyFatsTarget!.toStringAsFixed(0)}g'
+                          : '${(t['fats_g'] as num?)?.toStringAsFixed(0) ?? 'N/A'}g';
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildNutrientInfo('Calories', calDisplay,
+                              Icons.local_fire_department),
+                          _buildNutrientInfo('Protein', proteinDisplay, Icons.egg),
+                          _buildNutrientInfo('Carbs', carbsDisplay, Icons.bakery_dining),
+                          _buildNutrientInfo('Fats', fatsDisplay, Icons.water_drop),
+                        ],
+                      );
+                    }),
                   ],
                 ),
               ),

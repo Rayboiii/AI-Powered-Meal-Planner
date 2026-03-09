@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/meal_plan_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../utils/app_theme.dart';
 
 class GeneratePlanScreen extends StatefulWidget {
@@ -41,6 +42,20 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
 
   Future<void> _generatePlan() async {
     if (_isGenerating) return;
+
+    final profile =
+        Provider.of<ProfileProvider>(context, listen: false).profile;
+    if (profile == null || !profile.isComplete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Please complete your profile first (age, weight, height, activity level, and health goal are required)'),
+          backgroundColor: AppTheme.warningColor,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
 
     setState(() => _isGenerating = true);
 

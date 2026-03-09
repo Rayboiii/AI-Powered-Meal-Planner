@@ -17,7 +17,7 @@ async def create_meal_plan(
 
     # Get user profile
     profile_query = """
-        SELECT age, weight, height, dietary_preferences,
+        SELECT age, weight, height, gender, dietary_preferences,
                allergies, health_goals, activity_level
         FROM user_profiles
         WHERE user_id = %s

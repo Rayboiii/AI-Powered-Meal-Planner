@@ -104,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
                 const SizedBox(height: 32),
                 const Text(
-                  'AI Meal Planner',
+                  'NutriPlan',
                   style: TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w700,

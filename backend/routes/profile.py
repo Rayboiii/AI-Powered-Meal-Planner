@@ -16,6 +16,7 @@ _FIELD_TO_COLUMN: dict[str, str] = {
     "age":                  "age",
     "weight":               "weight",
     "height":               "height",
+    "gender":               "gender",
     "dietary_preferences":  "dietary_preferences",
     "allergies":            "allergies",
     "health_goals":         "health_goals",
@@ -29,7 +30,7 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
     # 'name' is fetched separately so that a missing column in older
     # database versions never causes this endpoint to return 404.
     query = """
-        SELECT age, weight, height, dietary_preferences,
+        SELECT age, weight, height, gender, dietary_preferences,
                allergies, health_goals, activity_level
         FROM user_profiles
         WHERE user_id = %s
@@ -49,13 +50,14 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
     profile_data['name'] = name_row[0].get('name') if name_row else None
 
     # Compute personalised daily targets whenever the profile is complete
-    required = ('age', 'weight', 'height', 'activity_level', 'health_goals')
+    required = ('weight', 'height', 'activity_level', 'health_goals')
     if all(profile_data.get(k) for k in required):
         try:
             bmr = calculate_bmr(
-                age=int(profile_data['age']),
+                age=int(profile_data['age']) if profile_data.get('age') else 30,
                 weight=float(profile_data['weight']),
                 height=float(profile_data['height']),
+                gender=profile_data.get('gender') or 'male',
             )
             tdee        = calculate_tdee(bmr, profile_data['activity_level'])
             target_cal  = adjust_calories_for_goal(tdee, profile_data['health_goals'])

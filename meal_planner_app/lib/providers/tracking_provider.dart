@@ -121,4 +121,11 @@ class TrackingProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  void clearTracking() {
+    _todayMeals = [];
+    _totalCalories = 0;
+    _errorMessage = null;
+    notifyListeners();
+  }
 }

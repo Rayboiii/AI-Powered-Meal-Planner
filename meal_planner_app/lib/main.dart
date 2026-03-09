@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer<ThemeProvider>(
         builder: (_, tp, __) => MaterialApp(
-          title: 'AI Meal Planner',
+          title: 'NutriPlan',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,

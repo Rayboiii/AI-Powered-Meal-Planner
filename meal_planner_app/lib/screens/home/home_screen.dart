@@ -215,7 +215,13 @@ class _HomeTabState extends State<HomeTab> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
+      final trackingProvider =
+          Provider.of<TrackingProvider>(context, listen: false);
+      final mealPlanProvider =
+          Provider.of<MealPlanProvider>(context, listen: false);
       profileProvider.clearProfile();
+      trackingProvider.clearTracking();
+      mealPlanProvider.clearMealPlan();
       await authProvider.logout();
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -282,7 +288,13 @@ class _HomeTabState extends State<HomeTab> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
+      final trackingProvider2 =
+          Provider.of<TrackingProvider>(context, listen: false);
+      final mealPlanProvider2 =
+          Provider.of<MealPlanProvider>(context, listen: false);
       profileProvider.clearProfile();
+      trackingProvider2.clearTracking();
+      mealPlanProvider2.clearMealPlan();
       await authProvider.logout();
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -1019,7 +1031,15 @@ class _HomeTabState extends State<HomeTab> {
                                 final profileProvider =
                                     Provider.of<ProfileProvider>(context,
                                         listen: false);
+                                final trackingProvider =
+                                    Provider.of<TrackingProvider>(context,
+                                        listen: false);
+                                final mealPlanProvider =
+                                    Provider.of<MealPlanProvider>(context,
+                                        listen: false);
                                 profileProvider.clearProfile();
+                                trackingProvider.clearTracking();
+                                mealPlanProvider.clearMealPlan();
                                 await authProvider.logout();
                                 if (mounted) {
                                   Navigator.of(context).pushReplacement(

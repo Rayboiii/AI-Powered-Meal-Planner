@@ -111,6 +111,7 @@ async def delete_account(current_user: dict = Depends(get_current_user)):
     user_id = current_user['user_id']
     execute_query("DELETE FROM meal_logs WHERE user_id = %s", (user_id,))
     execute_query("DELETE FROM progress_tracking WHERE user_id = %s", (user_id,))
+    execute_query("DELETE FROM weight_logs WHERE user_id = %s", (user_id,))
     execute_query("DELETE FROM meal_plans WHERE user_id = %s", (user_id,))
     execute_query("DELETE FROM user_profiles WHERE user_id = %s", (user_id,))
     execute_query("DELETE FROM users WHERE user_id = %s", (user_id,))

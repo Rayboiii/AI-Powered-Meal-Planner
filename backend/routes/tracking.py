@@ -283,7 +283,7 @@ async def suggest_next_meal(current_user: dict = Depends(get_current_user)):
 
     # 2. Get user profile
     profile = execute_query(
-        """SELECT age, weight, height, activity_level, health_goals,
+        """SELECT age, weight, height, gender, activity_level, health_goals,
                   dietary_preferences, allergies
            FROM user_profiles WHERE user_id = %s""",
         (user_id,)
@@ -293,13 +293,13 @@ async def suggest_next_meal(current_user: dict = Depends(get_current_user)):
         return {"status": "no_profile"}
 
     p = profile[0]
-    required = ('age', 'weight', 'height', 'activity_level', 'health_goals')
+    required = ('weight', 'height', 'activity_level', 'health_goals')
     if not all(p.get(k) for k in required):
         return {"status": "no_profile"}
 
     # Compute personalised daily targets (same logic as profile.py)
     try:
-        bmr        = calculate_bmr(int(p['age']), float(p['weight']), float(p['height']))
+        bmr        = calculate_bmr(int(p['age']) if p.get('age') else 30, float(p['weight']), float(p['height']), gender=p.get('gender') or 'male')
         tdee       = calculate_tdee(bmr, p['activity_level'])
         target_cal = adjust_calories_for_goal(tdee, p['health_goals'])
         macros     = calculate_macros(target_cal, p['health_goals'])
@@ -314,7 +314,18 @@ async def suggest_next_meal(current_user: dict = Depends(get_current_user)):
     # 3. Check if all meal types are already logged today
     all_types = ["breakfast", "lunch", "dinner", "snack"]
     if all(t in logged_types for t in all_types):
-        return {"status": "complete"}
+        cal_range = calorie_range(cal_target)
+        return {
+            "status": "complete",
+            "targets": {
+                "calories":     round(cal_target),
+                "calories_min": cal_range["min"],
+                "calories_max": cal_range["max"],
+                "protein":      round(pro_target,   1),
+                "carbs":        round(carbs_target, 1),
+                "fats":         round(fats_target,  1),
+            },
+        }
 
     # 4. Determine next meal type (first unlogged in canonical order)
     next_meal_type = next(t for t in all_types if t not in logged_types)

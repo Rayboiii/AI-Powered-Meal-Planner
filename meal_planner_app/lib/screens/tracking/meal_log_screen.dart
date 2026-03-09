@@ -292,8 +292,8 @@ class _MealLogScreenState extends State<MealLogScreen> {
                             _CalorieRing(
                               consumed: shownCal,
                               target: calTarget,
-                              targetMin: _cachedCalMin,
-                              targetMax: _cachedCalMax,
+                              targetMin: profile?.dailyCalorieTargetMin?.toDouble() ?? _cachedCalMin,
+                              targetMax: profile?.dailyCalorieTargetMax?.toDouble() ?? _cachedCalMax,
                             ),
                             const SizedBox(width: AppTheme.spaceMD),
 
@@ -2081,75 +2081,86 @@ class _SuggestionCard extends StatelessWidget {
           const SizedBox(height: AppTheme.spaceMD),
 
           // ── Primary suggestion ─────────────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      primary['name'] as String,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${primary['calories']} kcal · P ${primary['protein']}g · C ${primary['carbs']}g · F ${primary['fats']}g',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      primary['reason'] as String,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textTertiary,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                    if (primary['serving'] != null) ...[
-                      const SizedBox(height: 4),
+          GestureDetector(
+            onTap: () => onLogTap(primary),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Row(
                         children: [
-                          const Icon(Icons.restaurant_outlined,
-                              size: 12, color: AppTheme.textTertiary),
-                          const SizedBox(width: 4),
-                          Text(
-                            primary['serving'] as String,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textTertiary,
-                              fontWeight: FontWeight.w500,
+                          Expanded(
+                            child: Text(
+                              primary['name'] as String,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
                           ),
+                          const Icon(Icons.chevron_right,
+                              size: 16, color: AppTheme.textTertiary),
                         ],
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${primary['calories']} kcal · P ${primary['protein']}g · C ${primary['carbs']}g · F ${primary['fats']}g',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        primary['reason'] as String,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textTertiary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      if (primary['serving'] != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.restaurant_outlined,
+                                size: 12, color: AppTheme.textTertiary),
+                            const SizedBox(width: 4),
+                            Text(
+                              primary['serving'] as String,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textTertiary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppTheme.spaceSM),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryLightest,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-                ),
-                child: Text(
-                  '${primary['match_score']}%',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.primaryColor,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: AppTheme.spaceSM),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLightest,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+                  ),
+                  child: Text(
+                    '${primary['match_score']}%',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           // ── Recipe link ────────────────────────────────────────────────────
           if (((primary['ingredients'] as List?)?.isNotEmpty ?? false) ||
@@ -2208,34 +2219,98 @@ class _SuggestionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: alts
-                  .map(
-                    (alt) => GestureDetector(
-                      onTap: () => onLogTap(alt),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppTheme.borderColor),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusSM),
-                        ),
-                        child: Text(
-                          '${alt['name']}  ·  ${alt['calories']} kcal',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
+            ...alts.map((alt) {
+              final hasRecipe =
+                  ((alt['ingredients'] as List?)?.isNotEmpty ?? false) ||
+                  ((alt['instructions'] as List?)?.isNotEmpty ?? false);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: GestureDetector(
+                  onTap: () => onLogTap(alt),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.borderColor),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSM),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      alt['name'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.textSecondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right,
+                                      size: 14,
+                                      color: AppTheme.textTertiary),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${alt['calories']} kcal · P ${alt['protein']}g · C ${alt['carbs']}g · F ${alt['fats']}g',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textTertiary,
+                                ),
+                              ),
+                              if (alt['serving'] != null) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.restaurant_outlined,
+                                        size: 11,
+                                        color: AppTheme.textTertiary),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      alt['serving'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textTertiary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
+                        if (hasRecipe) ...[
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () => onRecipeTap(alt),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryLightest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.menu_book_outlined,
+                                size: 14,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  )
-                  .toList(),
-            ),
+                  ),
+                ),
+              );
+            }).toList(),
           ],
         ],
       ),

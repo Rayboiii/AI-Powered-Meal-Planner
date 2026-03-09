@@ -99,4 +99,10 @@ class MealPlanProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  void clearMealPlan() {
+    _currentPlan = null;
+    _errorMessage = null;
+    notifyListeners();
+  }
 }

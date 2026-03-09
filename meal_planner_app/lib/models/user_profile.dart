@@ -3,6 +3,7 @@ class UserProfile {
   final int? age;
   final double? weight;
   final double? height;
+  final String? gender;
   final String? dietaryPreferences;
   final String? allergies;
   final String? healthGoals;
@@ -21,6 +22,7 @@ class UserProfile {
     this.age,
     this.weight,
     this.height,
+    this.gender,
     this.dietaryPreferences,
     this.allergies,
     this.healthGoals,
@@ -39,6 +41,7 @@ class UserProfile {
       age: json['age'],
       weight: json['weight']?.toDouble(),
       height: json['height']?.toDouble(),
+      gender: json['gender'],
       dietaryPreferences: json['dietary_preferences'],
       allergies: json['allergies'],
       healthGoals: json['health_goals'],
@@ -58,6 +61,7 @@ class UserProfile {
       'age': age,
       'weight': weight,
       'height': height,
+      'gender': gender,
       'dietary_preferences': dietaryPreferences,
       'allergies': allergies,
       'health_goals': healthGoals,
@@ -67,8 +71,7 @@ class UserProfile {
   }
 
   bool get isComplete {
-    return age != null &&
-        weight != null &&
+    return weight != null &&
         height != null &&
         activityLevel != null &&
         healthGoals != null;
